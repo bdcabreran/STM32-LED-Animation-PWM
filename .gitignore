@@ -1,0 +1,65 @@
+# STM32CubeIDE specific files
+.project
+.cproject
+.loadpath
+.settings/
+
+# Build folders (can be named differently, e.g., Debug, Release, etc.)
+Debug/
+Release/
+build/
+out/
+
+# CubeMX generated files
+# *.ioc
+*.log
+
+# Object files, binaries, libraries
+*.elf
+*.bin
+*.hex
+*.map
+*.srec
+*.list
+*.crp
+*.o
+*.d
+
+# Backup files
+*~
+*.bak
+*.swp
+
+# IDE specific files
+.vscode/
+.idea/
+*.launch
+
+# Compiled source
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.pyc
+*.pyo
+
+# Temporary files
+*.tmp
+*.temp
+
+# Auto-generated files
+__pycache__/
+
+# Miscellaneous
+.DS_Store
+Thumbs.db
+
+# Exclude build artifacts
+/build/
+
+# Ignore external dependencies
+# Drivers/
+# Middlewares/
+venv/
