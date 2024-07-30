@@ -141,8 +141,8 @@ const RGB_Color_t Cyan   = {.R = 0, .G = 255, .B = 255};
 // Initialize Flash Animation
 const LED_Animation_Flash_t globalFlashConfig = {
     .color       = &Red,
-    .onTimeMs    = 50,
-    .offTimeMs   = 200,
+    .onTimeMs    = 100,
+    .offTimeMs   = 300,
     .repeatTimes = 10 // Repeat ten times
 };
 
@@ -161,7 +161,7 @@ const LED_Animation_Breath_t globalBreathConfig = {
     .color = &Yellow, .riseTimeMs = 500, .fallTimeMs = 1000, .repeatTimes = -1, .invert = true};
 
 const LED_Animation_Breath_t globalBreath2Config = {
-    .color = &Green, .riseTimeMs = 1000, .fallTimeMs = 1000, .repeatTimes = -1, .invert = false};
+    .color = &Green, .riseTimeMs = 1000, .fallTimeMs = 1000, .repeatTimes = 5, .invert = false};
 
 const LED_Animation_FadeIn_t globalFadeInConfig = {.color = &Color, .durationMs = 1000, .repeatTimes = 1};
 
@@ -173,7 +173,7 @@ const LED_Animation_Pulse_t globalPulseConfig = {
     .holdOnTimeMs  = 200,
     .fallTimeMs    = 300,
     .holdOffTimeMs = 200,
-    .repeatTimes   = 3,
+    .repeatTimes   = 10,
 };
 
 static const void* AlternatingColors[] = {&Red, &Green, &Blue, &Purple, &Yellow, &Cyan};
@@ -198,7 +198,7 @@ const LED_Animation_ColorCycle_t globalColorCycleConfig = {.colors = (void*)Alte
 LED_Handle_t            MyLed;
 LED_Transition_Handle_t TransitionsHandle;
 
-#define MAX_TRANSITIONS (8)
+#define MAX_TRANSITIONS (1)
 const LED_Transition_Config_t transitionMapping[MAX_TRANSITIONS] = {
     {.StartAnim = &globalSolidConfig, .EndAnim = &globalFlashConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
     {.StartAnim = &globalBreathConfig, .EndAnim = &globalBreath2Config, .TransitionType = LED_TRANSITION_INTERPOLATE},
@@ -208,6 +208,7 @@ const LED_Transition_Config_t transitionMapping[MAX_TRANSITIONS] = {
     {.StartAnim = &globalBlinkConfig, .EndAnim = &globalBreath2Config, .TransitionType = LED_TRANSITION_INTERPOLATE},
     {.StartAnim = &globalBreath2Config, .EndAnim = &globalBreathConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
     {.StartAnim = &globalBreathConfig, .EndAnim = &globalPulseConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
+    {.StartAnim = &globalPulseConfig, .EndAnim = &globalFlashConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
 
 };
 
@@ -373,9 +374,11 @@ int main(void)
                 // Transition from blink to solid
                 LED_Transition_ExecAnimation(&TransitionsHandle, &globalPulseConfig, LED_ANIMATION_TYPE_PULSE);
                 break;
-                // case 4:
+            case 4:
+                LED_Transition_ExecAnimation(&TransitionsHandle, &globalFlashConfig, LED_ANIMATION_TYPE_FLASH);
+                counter = 0;
 
-                //     break;
+                break;
 
             default:
                 break;

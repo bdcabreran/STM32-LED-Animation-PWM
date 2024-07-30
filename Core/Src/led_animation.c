@@ -808,10 +808,14 @@ static LED_Status_t LED_AnimationFlashExecute(LED_Handle_t* this, uint32_t tick)
     if (elapsedTime < Flash->onTimeMs)
     {
         this->controller->Start(); // LED on during the 'on' time
+        uint8_t colorCount = CalculateColorCount(this->controller->LedType);
+        memset(this->currentColor, (uint8_t*)Flash->color, colorCount);
     }
     else if (elapsedTime < totalPeriodMs)
     {
         this->controller->Stop(); // LED off during the 'off' time
+        uint8_t colorCount = CalculateColorCount(this->controller->LedType);
+        memset(this->currentColor, 0, colorCount);
     }
 
     // Reset for the next cycle or handle the completion
@@ -878,11 +882,15 @@ static LED_Status_t LED_AnimationBlinkExecute(LED_Handle_t* this, uint32_t tick)
     {
         // Turn LED off after half the period
         this->controller->Stop();
+        uint8_t colorCount = CalculateColorCount(this->controller->LedType);
+        memset(this->currentColor, 0, colorCount);
     }
     else
     {
         // Turn LED on for the first half of the period
         this->controller->Start();
+        uint8_t colorCount = CalculateColorCount(this->controller->LedType);
+        memset(this->currentColor, (uint8_t*)Blink->color, colorCount);
     }
 
     return LED_STATUS_SUCCESS;
@@ -1146,6 +1154,18 @@ static LED_Status_t LED_AnimationBreathExecute(LED_Handle_t* this, uint32_t tick
 #endif
     }
 
+    // print colors for debugging
+    static uint8_t print_once = 1;
+    if (print_once)
+    {
+        print_once = 0;
+        LED_CONTROL_DBG_MSG("timeInCycle %d, Color: %d, %d, %d\r\n",
+                            timeInCycle,
+                            dutyCycleValues[0],
+                            dutyCycleValues[1],
+                            dutyCycleValues[2]);
+    }
+
     LED_Status_t result = ExecuteDutyCycleSetting(this, dutyCycleValues);
     if (result != LED_STATUS_SUCCESS)
     {
@@ -1154,6 +1174,7 @@ static LED_Status_t LED_AnimationBreathExecute(LED_Handle_t* this, uint32_t tick
 
     if (elapsedTime >= totalCycleTimeMs)
     {
+        printf("Repeat Times: %d\r\n", this->repeatTimes);
         this->startTime       = tick;
         bool StopOnCompletion = Breath->invert ? false : true;
         HandleRepeatLogic(this, Breath->repeatTimes, StopOnCompletion);

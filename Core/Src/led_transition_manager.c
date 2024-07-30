@@ -58,17 +58,12 @@ static void LED_Transition_SetNextState(LED_Transition_Handle_t* this, LED_Trans
     if (IS_VALID_TRANSITION_STATE(nextState))
     {
         this->state = nextState;
-        this->event = LED_TRANSITION_EVT_INVALID;
     }
 }
 
 static LED_Status_t LED_Transition_StateIdle(LED_Transition_Handle_t* this)
 {
-    if (this->event == LED_TRANSITION_EVT_START)
-    {
-        LED_Transition_SetNextState(this, LED_TRANSITION_STATE_SETUP);
-        LED_TRANSITION_DBG_MSG("Transitioning from IDLE to SETUP\r\n");
-    }
+    /*Do nothing*/
     return LED_STATUS_SUCCESS;
 }
 
@@ -90,7 +85,7 @@ static bool LED_Transition_FindTransition(LED_Transition_Handle_t* this)
 static void LED_Transition_SetDefaultType(LED_Transition_Handle_t* this)
 {
     LED_TRANSITION_DBG_MSG("Transition not found in the map, using default transition type\r\n");
-    this->transitionType = LED_TRANSITION_IMMINENT;
+    this->transitionType = LED_TRANSITION_INTERPOLATE;
 }
 
 static void LED_Transition_HandleInterpolate(LED_Transition_Handle_t* this)
@@ -112,18 +107,10 @@ static void LED_Transition_HandleInterpolate(LED_Transition_Handle_t* this)
         }
     }
 
-    bool interpolationNeeded = false;
-
-    // Check if the current color and target color are different
-    if (memcmp(this->currentColor, this->targetColor, colorCount) != 0)
+    // Print Color Current and Target
+    for (uint8_t i = 0; i < colorCount; i++)
     {
-        interpolationNeeded = true;
-    }
-
-    if (!interpolationNeeded)
-    {
-        LED_TRANSITION_DBG_MSG("No interpolation needed\r\n");
-        this->transitionType = LED_TRANSITION_IMMINENT;
+        LED_TRANSITION_DBG_MSG("Color Current: %d, Target: %d\r\n", this->currentColor[i], this->targetColor[i]);
     }
 }
 
@@ -253,22 +240,23 @@ static void PerformQuadraticInterpolation(LED_Transition_Handle_t* this, uint32_
     LED_Animation_ExecuteColorSetting(this->LedHandle, interpolatedColor);
 }
 
+static LED_Status_t LED_Transition_StateCompleted(LED_Transition_Handle_t* this)
+{
+    LED_Transition_CallCallbackIfExists(this, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
+
+    LED_Animation_Stop(this->LedHandle, true);
+    LED_Animation_SetAnimation(this->LedHandle, this->targetAnimData, this->targetAnimType);
+    LED_Animation_Start(this->LedHandle);
+
+    this->targetAnimData = NULL;
+    this->targetAnimType = LED_ANIMATION_TYPE_INVALID;
+    this->transitionType = LED_TRANSITION_INVALID;
+    LED_Transition_SetNextState(this, LED_TRANSITION_STATE_IDLE);
+}
+
 static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, uint32_t tick)
 {
     uint32_t elapsed = tick - this->lastTick;
-
-    // If no animation is running start immediately
-    if (this->LedHandle->isRunning == false)
-    {
-        LED_TRANSITION_DBG_MSG("No animation running, starting immediately\r\n");
-
-        LED_Transition_CallCallbackIfExists(this, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
-
-        LED_Animation_SetAnimation(this->LedHandle, this->targetAnimData, this->targetAnimType);
-        LED_Animation_Start(this->LedHandle);
-        LED_Transition_SetNextState(this, LED_TRANSITION_STATE_IDLE);
-        return LED_STATUS_SUCCESS;
-    }
 
     // Execute the transition
     switch (this->transitionType)
@@ -276,35 +264,18 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
     case LED_TRANSITION_IMMINENT:
     {
         LED_TRANSITION_DBG_MSG("Transitioning Immediately\r\n");
-
-        LED_Transition_CallCallbackIfExists(this, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
-
-        LED_Animation_SetAnimation(this->LedHandle, this->targetAnimData, this->targetAnimType);
-        LED_Animation_Start(this->LedHandle);
-
-        LED_Transition_SetNextState(this, LED_TRANSITION_STATE_IDLE);
+        LED_Transition_SetNextState(this, LED_TRANSITION_STATE_COMPLETED);
     }
     break;
 
-    case LED_TRANSITION_SOFT:
-    {
-        // quick fade in/out transition
-        LED_TRANSITION_DBG_MSG("Transitioning Softly\r\n");
-    }
-    break;
     case LED_TRANSITION_INTERPOLATE:
     {
         if (elapsed >= TRANSITION_INTERPOLATE_TIME_MS)
         {
             LED_TRANSITION_DBG_MSG("Interpolation Completed\r\n");
 
-            LED_Transition_CallCallbackIfExists(this, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
-
-            LED_Animation_SetAnimation(this->LedHandle, this->targetAnimData, this->targetAnimType);
-            LED_Animation_Start(this->LedHandle);
-
             // Transition to idle state
-            LED_Transition_SetNextState(this, LED_TRANSITION_STATE_IDLE);
+            LED_Transition_SetNextState(this, LED_TRANSITION_STATE_COMPLETED);
         }
         else
         {
@@ -327,24 +298,17 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
         if (elapsed > TRANSITION_UPON_COMPLETION_TIMEOUT_MS)
         {
             LED_TRANSITION_DBG_MSG("Upon Completion Error, Timeout\r\n");
-            this->transitionType = LED_TRANSITION_IMMINENT;
+            LED_Transition_SetNextState(this, LED_TRANSITION_STATE_COMPLETED);
         }
         else if (this->LedHandle->isRunning == false)
         {
             LED_TRANSITION_DBG_MSG("Transitioning on Completion\r\n");
-
-            LED_Transition_CallCallbackIfExists(this, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
-
-            LED_Animation_SetAnimation(this->LedHandle, this->targetAnimData, this->targetAnimType);
-            LED_Animation_Start(this->LedHandle);
-
-            LED_Transition_SetNextState(this, LED_TRANSITION_STATE_IDLE);
+            LED_Transition_SetNextState(this, LED_TRANSITION_STATE_COMPLETED);
         }
     }
     break;
     case LED_TRANSITION_AT_CLEAN_ENTRY:
     {
-
         uint8_t colorCount = CalculateColorCount(this->LedHandle->animationType);
         uint8_t color[colorCount];
         LED_Animation_GetCurrentColor(this->LedHandle, color, &colorCount);
@@ -352,36 +316,22 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
         if (AreColorsOff(color, colorCount))
         {
             LED_TRANSITION_DBG_MSG("Transitioning on Off\r\n");
-            if (this->LedHandle->callback != NULL)
-            {
-                this->LedHandle->callback(this->LedHandle->animationType, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
-            }
-
-            LED_Animation_SetAnimation(this->LedHandle, this->targetAnimData, this->targetAnimType);
-            LED_Animation_Start(this->LedHandle);
-
-            LED_Transition_SetNextState(this, LED_TRANSITION_STATE_IDLE);
+            LED_Transition_SetNextState(this, LED_TRANSITION_STATE_COMPLETED);
         }
 
         if (elapsed > TRANSITION_AT_CLEAN_ENTRY_TIMEOUT_MS)
         {
             LED_TRANSITION_DBG_MSG("Clean Entry Error, Timeout\r\n");
-            this->transitionType = LED_TRANSITION_IMMINENT;
+            LED_Transition_SetNextState(this, LED_TRANSITION_STATE_COMPLETED);
         }
     }
     break;
     }
     return LED_STATUS_SUCCESS;
 }
-static uint32_t last_tick = 0;
-LED_Status_t    LED_Transition_Update(LED_Transition_Handle_t* this, uint32_t tick)
+
+LED_Status_t LED_Transition_Update(LED_Transition_Handle_t* this, uint32_t tick)
 {
-
-    if (last_tick == tick)
-    {
-        return LED_STATUS_SUCCESS;
-    }
-
     if (this == NULL)
     {
         return LED_STATUS_ERROR_NULL_POINTER;
@@ -398,15 +348,16 @@ LED_Status_t    LED_Transition_Update(LED_Transition_Handle_t* this, uint32_t ti
         LED_Transition_StateOngoing(this, tick);
         break;
     case LED_TRANSITION_STATE_COMPLETED:
-        // Code for LED_TRANSITION_COMPLETED state
+        LED_Transition_StateCompleted(this);
         break;
     default:
         break;
     }
 
-    last_tick = tick;
-
-    LED_Animation_Update(this->LedHandle, tick);
+    if (this->transitionType != LED_TRANSITION_INTERPOLATE)
+    {
+        LED_Animation_Update(this->LedHandle, tick);
+    }
 
     return LED_STATUS_SUCCESS;
 }
@@ -423,7 +374,7 @@ LED_Transition_ExecAnimation(LED_Transition_Handle_t* this, const void* animData
     {
         this->targetAnimData = animData;
         this->targetAnimType = animType;
-        this->event          = LED_TRANSITION_EVT_START;
+        LED_Transition_SetNextState(this, LED_TRANSITION_STATE_SETUP);
         return LED_STATUS_SUCCESS;
     }
 
