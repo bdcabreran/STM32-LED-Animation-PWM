@@ -12,6 +12,10 @@
 
 #include "led_animation.h"
 
+// only one of the following should be defined
+#define USE_LINEAR_INTERPOLATION 0
+#define USE_QUADRATIC_INTERPOLATION 1
+
 #define TRANSITION_AT_CLEAN_ENTRY_TIMEOUT_MS 2000
 #define TRANSITION_UPON_COMPLETION_TIMEOUT_MS 5000
 #define TRANSITION_INTERPOLATE_TIME_MS 200
@@ -73,7 +77,8 @@ typedef struct
     LED_Handle_t*          LedHandle;
     void*                  targetAnimData;
     LED_Animation_Type_t   targetAnimType;
-    uint8_t                targetColor[MAX_COLOR_CHANNELS]; /**< Target color of the LED. */
+    uint8_t                currentColor[MAX_COLOR_CHANNELS]; /**< Current color of the LED. */
+    uint8_t                targetColor[MAX_COLOR_CHANNELS];  /**< Target color of the LED. */
     LED_Transition_Type_t  transitionType;
     LED_Transition_State_t state;
     LED_Transition_Event_t event;

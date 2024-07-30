@@ -1621,16 +1621,15 @@ LED_Status_t LED_Animation_GetCurrentColor(LED_Handle_t* this, uint8_t* color, u
     return LED_STATUS_SUCCESS;
 }
 
-LED_Status_t
-LED_Animation_GetTargetColor(void* animData, LED_Animation_Type_t animationType, uint8_t* color, uint8_t colorCount)
+LED_Status_t LED_Animation_GetTargetColor(void* animData, LED_Animation_Type_t Type, uint8_t* color, uint8_t colorCount)
 {
-    if (animData == NULL || color == NULL || colorCount == NULL)
+    if (animData == NULL || color == NULL || colorCount == 0)
     {
         return LED_STATUS_ERROR_NULL_POINTER;
     }
 
     // Determine the type of animation and extract the colors accordingly
-    switch (animationType)
+    switch (Type)
     {
     case LED_ANIMATION_TYPE_SOLID:
     case LED_ANIMATION_TYPE_BLINK:
@@ -1641,28 +1640,28 @@ LED_Animation_GetTargetColor(void* animData, LED_Animation_Type_t animationType,
     case LED_ANIMATION_TYPE_BREATH:
     {
         LED_Animation_Solid_t* animConfig = (LED_Animation_Solid_t*)animData;
-        RGB_Color_t*           colorData  = animConfig->color;
-        color[0]                          = colorData->R;
-        color[1]                          = colorData->G;
-        color[2]                          = colorData->B;
-        LED_CONTROL_DBG_MSG("Color: R=%d, G=%d, B=%d\r\n", color[0], color[1], color[2]);
+        uint8_t*               animColor  = (uint8_t*)animConfig->color;
+        for (uint32_t i = 0; i < colorCount; i++)
+        {
+            color[i] = animColor[i];
+            LED_CONTROL_DBG_MSG("Color[%d]: %d\r\n", i, color[i]);
+        }
         break;
     }
 
     case LED_ANIMATION_TYPE_ALTERNATING_COLORS:
     case LED_ANIMATION_TYPE_COLOR_CYCLE:
     {
-        // For multi-color animations
-        RGB_Color_t* colorsArray = (RGB_Color_t*)animData;
+        // For multi-color animations, only return the first color in the array
+        uint8_t* colorsArray = (uint8_t*)animData;
         for (uint32_t i = 0; i < colorCount; i++)
         {
-            color[i * 3]     = colorsArray[i].R;
-            color[i * 3 + 1] = colorsArray[i].G;
-            color[i * 3 + 2] = colorsArray[i].B;
-            LED_CONTROL_DBG_MSG("Color[%d]: R=%d, G=%d, B=%d\r\n", i, color[i * 3], color[i * 3 + 1], color[i * 3 + 2]);
+            color[i] = colorsArray[i];
+            LED_CONTROL_DBG_MSG("Color[%d]: %d\r\n", i, color[i]);
         }
         break;
     }
+
     default:
         return LED_STATUS_ERROR_INVALID_ANIMATION_TYPE;
     }

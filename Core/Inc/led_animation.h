@@ -435,7 +435,7 @@ uint32_t CalculateColorCount(LED_Type_t ledType);
 LED_Status_t LED_Animation_ExecuteColorSetting(LED_Handle_t* this, uint8_t* colorValues);
 
 LED_Status_t
-LED_Animation_GetTargetColor(void* animData, LED_Animation_Type_t animationType, uint8_t* color, uint8_t colorCount);
+LED_Animation_GetTargetColor(void* animData, LED_Animation_Type_t Type, uint8_t* color, uint8_t colorCount);
 
 bool LED_Animation_ShouldStartHigh(LED_Animation_Type_t animationType, void* animConfig);
 

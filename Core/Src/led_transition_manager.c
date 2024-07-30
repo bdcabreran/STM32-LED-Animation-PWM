@@ -72,10 +72,6 @@ static LED_Status_t LED_Transition_StateIdle(LED_Transition_Handle_t* this)
     return LED_STATUS_SUCCESS;
 }
 
-uint8_t  currentColor[3];
-uint8_t  targetColor[3];
-uint32_t colorCount;
-
 static bool LED_Transition_FindTransition(LED_Transition_Handle_t* this)
 {
     for (uint32_t i = 0; i < this->mapSize; i++)
@@ -99,30 +95,32 @@ static void LED_Transition_SetDefaultType(LED_Transition_Handle_t* this)
 
 static void LED_Transition_HandleInterpolate(LED_Transition_Handle_t* this)
 {
-    uint32_t colorCount = CalculateColorCount(this->targetAnimType);
+    uint32_t colorCount = CalculateColorCount(this->LedHandle->controller->LedType);
     LED_TRANSITION_DBG_MSG("LED Color Count: %d\r\n", colorCount);
 
-    LED_Animation_GetCurrentColor(this->LedHandle, currentColor, colorCount);
-    LED_Animation_GetTargetColor(this->targetAnimData, this->targetAnimType, targetColor, colorCount);
-
-    for (uint8_t i = 0; i < colorCount; i++)
-    {
-        LED_TRANSITION_DBG_MSG("[%d] Current Color: %d, Target Color: %d\r\n", i + 1, currentColor[i], targetColor[i]);
-    }
+    LED_Animation_GetCurrentColor(this->LedHandle, this->currentColor, colorCount);
+    LED_Animation_GetTargetColor(this->targetAnimData, this->targetAnimType, this->targetColor, colorCount);
 
     bool startHigh = LED_Animation_ShouldStartHigh(this->targetAnimType, this->targetAnimData);
 
     if (!startHigh)
     {
         LED_TRANSITION_DBG_MSG("Target Animation starts low, setting target color to 0\r\n");
-        targetColor[0] = targetColor[1] = targetColor[2] = 0;
-    }
-    else
-    {
-        LED_TRANSITION_DBG_MSG("Target Animation starts high\r\n");
+        for (uint8_t i = 0; i < colorCount; i++)
+        {
+            this->targetColor[i] = 0;
+        }
     }
 
-    if (currentColor[0] == targetColor[0] && currentColor[1] == targetColor[1] && currentColor[2] == targetColor[2])
+    bool interpolationNeeded = false;
+
+    // Check if the current color and target color are different
+    if (memcmp(this->currentColor, this->targetColor, colorCount) != 0)
+    {
+        interpolationNeeded = true;
+    }
+
+    if (!interpolationNeeded)
     {
         LED_TRANSITION_DBG_MSG("No interpolation needed\r\n");
         this->transitionType = LED_TRANSITION_IMMINENT;
@@ -166,28 +164,93 @@ bool AreColorsOff(uint8_t* colors, uint8_t colorCount)
     {
         if (colors[i] != 0)
         {
-            // LED_TRANSITION_DBG_MSG("not off\r\n");
             return false;
         }
     }
     return true;
 }
 
-/**
- * @brief Linearly interpolate between two colors.
- *
- * @param startColor The starting color.
- * @param endColor The ending color.
- * @param t The interpolation factor (0.0 to 1.0).
- * @param interpolatedColor The result of the interpolation.
- * @param colorCount The number of color components.
- */
-void InterpolateColors(uint8_t* startColor, uint8_t* endColor, float t, uint8_t* interpolatedColor, uint8_t colorCount)
+static void PerformLinearInterpolation(LED_Transition_Handle_t* this, uint32_t elapsed)
 {
+    // Get Color Count
+    uint8_t colorCount = CalculateColorCount(this->LedHandle->controller->LedType);
+
+    // Calculate the interpolated color
+    uint32_t timeInCycle = elapsed % TRANSITION_INTERPOLATE_TIME_MS;
+
+    // Calculate interpolation factor (t) based on elapsed time and scale it
+    uint32_t fraction_scaled = (timeInCycle * 1000) / TRANSITION_INTERPOLATE_TIME_MS;
+
+    // Ensure fraction_scaled is between 0 and 1000
+    if (fraction_scaled > 1000)
+    {
+        fraction_scaled = 1000;
+    }
+
+    uint8_t* currentColor = this->currentColor;
+    uint8_t* targetColor  = this->targetColor;
+    uint8_t  interpolatedColor[colorCount];
+
     for (uint8_t i = 0; i < colorCount; i++)
     {
-        interpolatedColor[i] = (uint8_t)((1.0f - t) * startColor[i] + t * endColor[i]);
+        interpolatedColor[i] =
+            currentColor[i] + ((int32_t)(fraction_scaled * (int32_t)(targetColor[i] - currentColor[i])) / 1000);
     }
+
+    // Print interpolated color
+    LED_TRANSITION_DBG_MSG("Interpolated Color (Linear): ");
+    for (uint8_t i = 0; i < colorCount; i++)
+    {
+        LED_TRANSITION_DBG_MSG("%d ", interpolatedColor[i]);
+    }
+    LED_TRANSITION_DBG_MSG("\r\n");
+
+    // Update the LED handle with the interpolated color
+    LED_Animation_ExecuteColorSetting(this->LedHandle, interpolatedColor);
+}
+
+static void PerformQuadraticInterpolation(LED_Transition_Handle_t* this, uint32_t elapsed)
+{
+    // Get Color Count
+    uint8_t colorCount = CalculateColorCount(this->LedHandle->controller->LedType);
+
+    // Calculate the interpolated color
+    uint32_t timeInCycle = elapsed % TRANSITION_INTERPOLATE_TIME_MS;
+
+    // Calculate interpolation factor (t) based on elapsed time and scale it
+    uint32_t fraction_scaled = (timeInCycle * 1000) / TRANSITION_INTERPOLATE_TIME_MS;
+
+    // Ensure fraction_scaled is between 0 and 1000
+    if (fraction_scaled > 1000)
+    {
+        fraction_scaled = 1000;
+    }
+
+    // Convert the scaled fraction to a float between 0.0 and 1.0
+    float t = fraction_scaled / 1000.0f;
+
+    // Apply quadratic interpolation by squaring the interpolation factor
+    float t_squared = t * t;
+
+    uint8_t* currentColor = this->currentColor;
+    uint8_t* targetColor  = this->targetColor;
+    uint8_t  interpolatedColor[colorCount];
+
+    for (uint8_t i = 0; i < colorCount; i++)
+    {
+        interpolatedColor[i] = currentColor[i] + (int32_t)((targetColor[i] - currentColor[i]) * t_squared);
+    }
+
+    // Print interpolated color
+    LED_TRANSITION_DBG_MSG("Interpolated Color (Quadratic): ");
+    for (uint8_t i = 0; i < colorCount; i++)
+    {
+        LED_TRANSITION_DBG_MSG("%d ", interpolatedColor[i]);
+    }
+    LED_TRANSITION_DBG_MSG("\r\n");
+
+    // Update the LED handle with the interpolated color
+    LED_Animation_ExecuteColorSetting(this->LedHandle, interpolatedColor);
 }
 
 static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, uint32_t tick)
@@ -199,10 +262,7 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
     {
         LED_TRANSITION_DBG_MSG("No animation running, starting immediately\r\n");
 
-        if (this->LedHandle->callback != NULL)
-        {
-            this->LedHandle->callback(this->LedHandle->animationType, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
-        }
+        LED_Transition_CallCallbackIfExists(this, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
 
         LED_Animation_SetAnimation(this->LedHandle, this->targetAnimData, this->targetAnimType);
         LED_Animation_Start(this->LedHandle);
@@ -217,10 +277,7 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
     {
         LED_TRANSITION_DBG_MSG("Transitioning Immediately\r\n");
 
-        if (this->LedHandle->callback != NULL)
-        {
-            this->LedHandle->callback(this->LedHandle->animationType, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
-        }
+        LED_Transition_CallCallbackIfExists(this, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
 
         LED_Animation_SetAnimation(this->LedHandle, this->targetAnimData, this->targetAnimType);
         LED_Animation_Start(this->LedHandle);
@@ -241,14 +298,7 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
         {
             LED_TRANSITION_DBG_MSG("Interpolation Completed\r\n");
 
-            // Set current color to target color to complete the transition
-            LED_Animation_GetCurrentColor(this->LedHandle, currentColor, &colorCount);
-            LED_TRANSITION_DBG_MSG("Current Color: %d %d %d\r\n", currentColor[0], currentColor[1], currentColor[2]);
-
-            if (this->LedHandle->callback != NULL)
-            {
-                this->LedHandle->callback(this->LedHandle->animationType, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
-            }
+            LED_Transition_CallCallbackIfExists(this, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
 
             LED_Animation_SetAnimation(this->LedHandle, this->targetAnimData, this->targetAnimType);
             LED_Animation_Start(this->LedHandle);
@@ -258,40 +308,14 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
         }
         else
         {
-            // Calculate the interpolated color
-            uint32_t timeInCycle = elapsed % TRANSITION_INTERPOLATE_TIME_MS;
+#if USE_LINEAR_INTERPOLATION
+            PerformLinearInterpolation(this, elapsed);
+#endif
 
-            // Calculate interpolation factor (t) based on elapsed time and scale it
-            uint32_t fraction_scaled = (timeInCycle * 1000) / TRANSITION_INTERPOLATE_TIME_MS;
-
-            // Ensure fraction_scaled is between 0 and 1000
-            if (fraction_scaled > 1000)
-            {
-                fraction_scaled = 1000;
-            }
-
-            // Calculate the interpolated color using the scaled fraction
-            uint8_t r =
-                currentColor[0] + ((int32_t)(fraction_scaled * (int32_t)(targetColor[0] - currentColor[0])) / 1000);
-            uint8_t g =
-                currentColor[1] + ((int32_t)(fraction_scaled * (int32_t)(targetColor[1] - currentColor[1])) / 1000);
-            uint8_t b =
-                currentColor[2] + ((int32_t)(fraction_scaled * (int32_t)(targetColor[2] - currentColor[2])) / 1000);
-            uint8_t interpolatedColor[3] = {r, g, b};
-
-            // Print the scaled fraction and timeInCycle for debugging
-            LED_TRANSITION_DBG_MSG("%d Inter Color: %d %d %d | Fraction: %d | Time in Cycle: %d\r\n",
-                                   elapsed,
-                                   interpolatedColor[0],
-                                   interpolatedColor[1],
-                                   interpolatedColor[2],
-                                   fraction_scaled,
-                                   timeInCycle);
-
-            // Update the LED handle with the interpolated color
-            LED_Animation_ExecuteColorSetting(this->LedHandle, interpolatedColor);
+#if USE_QUADRATIC_INTERPOLATION
+            PerformQuadraticInterpolation(this, elapsed);
+#endif
         }
-
         break;
     }
 
@@ -309,10 +333,7 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
         {
             LED_TRANSITION_DBG_MSG("Transitioning on Completion\r\n");
 
-            if (this->LedHandle->callback != NULL)
-            {
-                this->LedHandle->callback(this->LedHandle->animationType, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
-            }
+            LED_Transition_CallCallbackIfExists(this, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
 
             LED_Animation_SetAnimation(this->LedHandle, this->targetAnimData, this->targetAnimType);
             LED_Animation_Start(this->LedHandle);
