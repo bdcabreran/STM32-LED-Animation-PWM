@@ -331,13 +331,11 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
             PerformQuadraticInterpolation(this, elapsed);
 #endif
         }
-        break;
     }
+    break;
 
     case LED_TRANSITION_UPON_COMPLETION:
     {
-        LED_TRANSITION_DBG_MSG("Transitioning Upon Completion\r\n");
-
         // safe guard to prevent infinite loop
         if (elapsed > this->Duration)
         {
@@ -351,6 +349,7 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
         }
     }
     break;
+
     case LED_TRANSITION_AT_CLEAN_ENTRY:
     {
         uint8_t colorCount = CalculateColorCount(this->LedHandle->animationType);
@@ -362,8 +361,8 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
             LED_TRANSITION_DBG_MSG("Transitioning on Off\r\n");
             LED_Transition_SetNextState(this, LED_TRANSITION_STATE_COMPLETED);
         }
-
-        if (elapsed > this->Duration)
+        // safe guard to prevent infinite loop
+        else if (elapsed > this->Duration)
         {
             LED_TRANSITION_DBG_MSG("Clean Entry Error, Timeout\r\n");
             LED_Transition_SetNextState(this, LED_TRANSITION_STATE_COMPLETED);
@@ -371,6 +370,7 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
     }
     break;
     }
+
     return LED_STATUS_SUCCESS;
 }
 
@@ -421,6 +421,8 @@ LED_Transition_ExecAnimation(LED_Transition_Handle_t* this, const void* animData
         LED_Transition_SetNextState(this, LED_TRANSITION_STATE_SETUP);
         return LED_STATUS_SUCCESS;
     }
-
-    return LED_STATUS_SUCCESS;
+    else
+    {
+        return LED_STATUS_ERROR_BUSY;
+    }
 }

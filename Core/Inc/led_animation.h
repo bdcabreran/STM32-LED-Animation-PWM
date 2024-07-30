@@ -34,6 +34,7 @@ typedef enum
     LED_STATUS_ERROR_INVALID_LED_TYPE,       /**< Error: Invalid LED type provided */
     LED_STATUS_ERROR_INVALID_ARGUMENT,       /**< Error: Invalid argument provided */
     LED_STATUS_ERROR_INVALID_VALUE,          /**< Error: Invalid value provided */
+    LED_STATUS_ERROR_BUSY,                   /**< Error: LED is busy */
     LED_STATUS_ERROR_INVALID_LED_POLARITY,   /**< Error: Invalid LED polarity */
 
     // Animation statuses
