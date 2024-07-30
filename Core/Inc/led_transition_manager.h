@@ -12,7 +12,9 @@
 
 #include "led_animation.h"
 
-#define CLEAN_ENTRY_TIMEOUT_MS 2000
+#define TRANSITION_AT_CLEAN_ENTRY_TIMEOUT_MS 2000
+#define TRANSITION_UPON_COMPLETION_TIMEOUT_MS 5000
+#define TRANSITION_INTERPOLATE_TIME_MS 200
 
 /**
  * @brief Enum for different types of LED transitions.
@@ -24,6 +26,7 @@ typedef enum
     LED_TRANSITION_INTERPOLATE,     /**< Smoothly interpolate between animations */
     LED_TRANSITION_UPON_COMPLETION, /**< Wait for the current animation to complete before transitioning */
     LED_TRANSITION_AT_CLEAN_ENTRY,  /**< Wait for a clean entry point in the current animation before transitioning */
+    LED_TRANSITION_SOFT,            /**< Soft transition */
     LED_TRANSITION_LAST             /**< Placeholder for the last transition type */
 } LED_Transition_Type_t;
 
@@ -56,6 +59,8 @@ typedef enum
     LED_TRANSITION_EVT_INVALID = 0,
     LED_TRANSITION_EVT_START,
     LED_TRANSITION_EVT_STOP,
+    LED_TRANSITION_EVT_COMPLETED,
+    LED_TRANSITION_EVT_TIMEOUT,
     LED_TRANSITION_EVT_LAST,
 } LED_Transition_Event_t;
 
@@ -68,11 +73,11 @@ typedef struct
     LED_Handle_t*          LedHandle;
     void*                  targetAnimData;
     LED_Animation_Type_t   targetAnimType;
+    uint8_t                targetColor[MAX_COLOR_CHANNELS]; /**< Target color of the LED. */
     LED_Transition_Type_t  transitionType;
     LED_Transition_State_t state;
     LED_Transition_Event_t event;
     uint32_t               lastTick;
-
 } LED_Transition_Handle_t;
 
 LED_Status_t LED_Transition_Init(LED_Transition_Handle_t* this, LED_Handle_t* LedHandle);

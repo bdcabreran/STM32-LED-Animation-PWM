@@ -122,52 +122,14 @@ PWM_RGB_t ledPwmConfig = {
 
 const RGB_Color_t Color2 = {.R = 0, .G = 255, .B = 255};
 
-const RGB_Color_t Color = {.R = 255, .G = 0, .B = 0};
+const RGB_Color_t Color = {.R = 0, .G = 0, .B = 255};
 
 // Initialize LED Controller with function pointers
 LED_Controller_t LEDController = {.Start        = PWM_Start,
                                   .Stop         = PWM_Stop,
                                   .PwmConfig    = &ledPwmConfig,
-                                  .LedType      = LED_TYPE_SINGLE_COLOR,
+                                  .LedType      = LED_TYPE_RGB,
                                   .MaxDutyCycle = MAX_DUTY_CYCLE};
-
-// Initialize Flash Animation
-const LED_Animation_Flash_t globalFlashConfig = {
-    .color       = &Color,
-    .onTimeMs    = 50,
-    .offTimeMs   = 200,
-    .repeatTimes = 20 // Repeat ten times
-};
-
-const LED_Animation_Blink_t globalBlinkConfig = {
-    .color       = &Color,
-    .periodMs    = 500,
-    .repeatTimes = 20 // Repeat ten times
-};
-
-const LED_Animation_Solid_t globalSolidConfig = {
-    .color           = &Color,
-    .executionTimeMs = 5000,
-};
-
-const LED_Animation_Breath_t globalBreathConfig = {
-    .color = &Color, .riseTimeMs = 500, .fallTimeMs = 1000, .repeatTimes = -1, .invert = false};
-
-const LED_Animation_Breath_t globalBreath2Config = {
-    .color = &Color2, .riseTimeMs = 1000, .fallTimeMs = 1000, .repeatTimes = -1, .invert = false};
-
-const LED_Animation_FadeIn_t globalFadeInConfig = {.color = &Color, .durationMs = 1000, .repeatTimes = 1};
-
-const LED_Animation_FadeOut_t globalFadeOutConfig = {.color = &Color, .durationMs = 1000, .repeatTimes = 1};
-
-const LED_Animation_Pulse_t globalPulseConfig = {
-    .color         = &Color,
-    .riseTimeMs    = 300,
-    .holdOnTimeMs  = 200,
-    .fallTimeMs    = 300,
-    .holdOffTimeMs = 200,
-    .repeatTimes   = 1,
-};
 
 const RGB_Color_t Red    = {.R = 255, .G = 0, .B = 0};
 const RGB_Color_t Green  = {.R = 0, .G = 255, .B = 0};
@@ -175,6 +137,44 @@ const RGB_Color_t Blue   = {.R = 0, .G = 0, .B = 255};
 const RGB_Color_t Purple = {.R = 255, .G = 0, .B = 255};
 const RGB_Color_t Yellow = {.R = 255, .G = 255, .B = 0};
 const RGB_Color_t Cyan   = {.R = 0, .G = 255, .B = 255};
+
+// Initialize Flash Animation
+const LED_Animation_Flash_t globalFlashConfig = {
+    .color       = &Red,
+    .onTimeMs    = 50,
+    .offTimeMs   = 200,
+    .repeatTimes = 10 // Repeat ten times
+};
+
+const LED_Animation_Blink_t globalBlinkConfig = {
+    .color       = &Cyan,
+    .periodMs    = 500,
+    .repeatTimes = 20 // Repeat ten times
+};
+
+const LED_Animation_Solid_t globalSolidConfig = {
+    .color           = &Purple,
+    .executionTimeMs = 0,
+};
+
+const LED_Animation_Breath_t globalBreathConfig = {
+    .color = &Yellow, .riseTimeMs = 500, .fallTimeMs = 1000, .repeatTimes = -1, .invert = true};
+
+const LED_Animation_Breath_t globalBreath2Config = {
+    .color = &Green, .riseTimeMs = 1000, .fallTimeMs = 1000, .repeatTimes = -1, .invert = false};
+
+const LED_Animation_FadeIn_t globalFadeInConfig = {.color = &Color, .durationMs = 1000, .repeatTimes = 1};
+
+const LED_Animation_FadeOut_t globalFadeOutConfig = {.color = &Color, .durationMs = 1000, .repeatTimes = 1};
+
+const LED_Animation_Pulse_t globalPulseConfig = {
+    .color         = &Cyan,
+    .riseTimeMs    = 300,
+    .holdOnTimeMs  = 200,
+    .fallTimeMs    = 300,
+    .holdOffTimeMs = 200,
+    .repeatTimes   = 3,
+};
 
 static const void* AlternatingColors[] = {&Red, &Green, &Blue, &Purple, &Yellow, &Cyan};
 
@@ -192,34 +192,67 @@ const LED_Animation_ColorCycle_t globalColorCycleConfig = {.colors = (void*)Alte
                                                            .transitionMs   = 300,
                                                            .holdTimeMs     = 700,
                                                            .repeatTimes    = 3,
-                                                           .leaveLastColor = false};
+                                                           .leaveLastColor = true};
 
 // Global LED Handle for RGB LED
 LED_Handle_t            MyLed;
 LED_Transition_Handle_t TransitionsHandle;
 
-#define MAX_TRANSITIONS (4)
+#define MAX_TRANSITIONS (8)
 const LED_Transition_Config_t transitionMapping[MAX_TRANSITIONS] = {
-    {.StartAnim = &globalSolidConfig, .EndAnim = &globalFlashConfig, .TransitionType = LED_TRANSITION_IMMINENT},
-
-    {.StartAnim      = &globalBreathConfig,
-     .EndAnim        = &globalBreath2Config,
-     .TransitionType = LED_TRANSITION_AT_CLEAN_ENTRY},
-
+    {.StartAnim = &globalSolidConfig, .EndAnim = &globalFlashConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
+    {.StartAnim = &globalBreathConfig, .EndAnim = &globalBreath2Config, .TransitionType = LED_TRANSITION_INTERPOLATE},
     {.StartAnim = &globalBreath2Config, .EndAnim = &globalBlinkConfig, .TransitionType = LED_TRANSITION_AT_CLEAN_ENTRY},
-    {.StartAnim = &globalBlinkConfig, .EndAnim = &globalSolidConfig, .TransitionType = LED_TRANSITION_AT_CLEAN_ENTRY},
+    {.StartAnim = &globalBlinkConfig, .EndAnim = &globalSolidConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
+    {.StartAnim = &globalSolidConfig, .EndAnim = &globalBlinkConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
+    {.StartAnim = &globalBlinkConfig, .EndAnim = &globalBreath2Config, .TransitionType = LED_TRANSITION_INTERPOLATE},
+    {.StartAnim = &globalBreath2Config, .EndAnim = &globalBreathConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
+    {.StartAnim = &globalBreathConfig, .EndAnim = &globalPulseConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
+
 };
 
 void LED_Complete_Callback(LED_Animation_Type_t animationType, LED_Status_t status)
 {
-    if (status == LED_SUCCESS)
+    // Print a separator for clarity in the output
+    UART_printf("----------------------------------------------------------------\r\n");
+
+    // Switch statement to handle different status cases
+    switch (status)
     {
-        UART_printf("Animation Completed, Type: %d\r\n", animationType);
+    case LED_STATUS_ANIMATION_STARTED:
+        UART_printf("Animation [%d] Started\r\n", animationType);
+        break;
+
+    case LED_STATUS_ANIMATION_COMPLETED:
+        UART_printf("Animation [%d] Completed\r\n", animationType);
+        break;
+
+    case LED_STATUS_ANIMATION_STOPPED:
+        UART_printf("Animation [%d] Stopped\r\n", animationType);
+        break;
+
+    case LED_STATUS_ANIMATION_TRANSITION_STARTED:
+        UART_printf("Animation [%d] Transition Started\r\n", animationType);
+        break;
+
+    case LED_STATUS_ANIMATION_TRANSITION_COMPLETED:
+        UART_printf("Animation [%d] Transition Completed\r\n", animationType);
+        break;
+
+    default:
+        if (IS_LED_ERROR_STATUS(status))
+        {
+            UART_printf("Animation [%d] Failed, Error %d\r\n", animationType, status);
+        }
+        else
+        {
+            UART_printf("Animation [%d] Unknown Status %d\r\n", animationType, status);
+        }
+        break;
     }
-    else
-    {
-        UART_printf("Animation Failed, Type: %d, Error %d\r\n", animationType, status);
-    }
+
+    // Print a separator to mark the end of the message
+    UART_printf("----------------------------------------------------------------\r\n");
 }
 
 void InitDWT(void)
@@ -286,7 +319,7 @@ int main(void)
     LED_Animation_Init(&MyLed, &LEDController, LED_Complete_Callback);
 
     // Intialize the LED Transition Handle
-    //    LED_Transition_Init(&TransitionsHandle, &MyLed);
+    LED_Transition_Init(&TransitionsHandle, &MyLed);
 
     // Set the blink animation for the single LED
     // LED_Animation_SetSolid(&MyLed, &globalSolidConfig);
@@ -294,24 +327,20 @@ int main(void)
     // LED_Animation_SetBlink(&MyLed, &globalBlinkConfig);
     // LED_Animation_SetFadeIn(&MyLed, &globalFadeInConfig);
     // LED_Animation_SetFadeOut(&MyLed, &globalFadeOutConfig);
-    // LED_Animation_SetBreath(&MyLed, &globalBreathConfig);
+    //     LED_Animation_SetBreath(&MyLed, &globalBreathConfig);
     // LED_Animation_SetPulse(&MyLed, &globalPulseConfig);
     // LED_Animation_SetAlternatingColors(&MyLed, &globalAlternatingColorsConfig);
     // LED_Animation_SetColorCycle(&MyLed, &globalColorCycleConfig);
 
     LED_Transition_SetMapping(&TransitionsHandle, transitionMapping, MAX_TRANSITIONS);
 
-    // Start the solid animation
-    LED_Transition_SetBreath(&TransitionsHandle, &globalBreathConfig); // red breath
-
-    LED_Transition_SetBreath(&TransitionsHandle, &globalBreath2Config); // green breath
-
-    // Start the blink animation
-    LED_Animation_Start(&MyLed);
+    // Start the LED Animation
+    LED_Transition_ExecAnimation(&TransitionsHandle, &globalSolidConfig, LED_ANIMATION_TYPE_SOLID);
 
     /* USER CODE END 2 */
     static uint32_t lastTick = 0;
     bool            send     = false;
+    uint8_t         counter  = 0;
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
     while (1)
@@ -319,25 +348,41 @@ int main(void)
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
-        LED_Animation_Update(&MyLed, HAL_GetTick());
-        // LED_Transition_Update(&TransitionsHandle, HAL_GetTick());
+        // LED_Animation_Update(&MyLed, HAL_GetTick());
+        LED_Transition_Update(&TransitionsHandle, HAL_GetTick());
 
-        // if (HAL_GetTick() - lastTick > 10000)
-        // {
-        //     lastTick = HAL_GetTick();
-        //     if (!send)
-        //     {
-        //         // LED_Transition_ExecAnimation(&TransitionsHandle, &globalFlashConfig, LED_ANIMATION_FLASH);
-        //         LED_Transition_ExecAnimation(&TransitionsHandle, &globalBreath2Config, LED_ANIMATION_BREATH);
-        //         send = true;
-        //     }
-        //     else
-        //     {
-        //         // LED_Transition_ExecAnimation(&TransitionsHandle, &globalSolidConfig, LED_ANIMATION_SOLID);
-        //         LED_Transition_ExecAnimation(&TransitionsHandle, &globalBlinkConfig, LED_ANIMATION_BLINK);
-        //         send = false;
-        //     }
-        // }
+        if (HAL_GetTick() - lastTick > 5000)
+        {
+            lastTick = HAL_GetTick();
+
+            switch (counter)
+            {
+            case 0:
+                // Transition from solid to breath
+                LED_Transition_ExecAnimation(&TransitionsHandle, &globalBlinkConfig, LED_ANIMATION_TYPE_BLINK);
+                break;
+            case 1:
+                // Transition from breath to breath2
+                LED_Transition_ExecAnimation(&TransitionsHandle, &globalBreath2Config, LED_ANIMATION_TYPE_BREATH);
+                break;
+            case 2:
+                // Transition from breath2 to blink
+                LED_Transition_ExecAnimation(&TransitionsHandle, &globalBreathConfig, LED_ANIMATION_TYPE_BREATH);
+                break;
+            case 3:
+                // Transition from blink to solid
+                LED_Transition_ExecAnimation(&TransitionsHandle, &globalPulseConfig, LED_ANIMATION_TYPE_PULSE);
+                break;
+                // case 4:
+
+                //     break;
+
+            default:
+                break;
+            }
+
+            counter++;
+        }
     }
     /* USER CODE END 3 */
 }

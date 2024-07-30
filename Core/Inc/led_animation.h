@@ -17,21 +17,35 @@
 
 #define LED_MAX_BRIGHTNESS (255) // Standardized 8-bit brightness level
 
-/** @brief Status codes for LED operations. */
+/**
+ * @brief Status codes for LED operations.
+ */
 typedef enum
 {
-    LED_SUCCESS = 0,
-    LED_ERROR_INVALID_COLOR,
-    LED_ERROR_INVALID_BRIGHTNESS,
-    LED_ERROR_PATTERN_NOT_SUPPORTED,
-    LED_ERROR_NULL_POINTER,
-    LED_ERROR_INVALID_ANIMATION_TYPE,
-    LED_ERROR_INVALID_LED_TYPE,
-    LED_ERROR_INVALID_ARGUMENT,
-    LED_ERROR_INVALID_VALUE,
-    LED_ERROR_INVALID_LED_POLARITY,
-    LED_ANIMATION_COMPLETED,
+    // General success status
+    LED_STATUS_SUCCESS = 0,
+
+    // Error statuses
+    LED_STATUS_ERROR_INVALID_COLOR,          /**< Error: Invalid color provided */
+    LED_STATUS_ERROR_INVALID_BRIGHTNESS,     /**< Error: Invalid brightness level provided */
+    LED_STATUS_ERROR_PATTERN_NOT_SUPPORTED,  /**< Error: Pattern not supported */
+    LED_STATUS_ERROR_NULL_POINTER,           /**< Error: Null pointer encountered */
+    LED_STATUS_ERROR_INVALID_ANIMATION_TYPE, /**< Error: Invalid animation type provided */
+    LED_STATUS_ERROR_INVALID_LED_TYPE,       /**< Error: Invalid LED type provided */
+    LED_STATUS_ERROR_INVALID_ARGUMENT,       /**< Error: Invalid argument provided */
+    LED_STATUS_ERROR_INVALID_VALUE,          /**< Error: Invalid value provided */
+    LED_STATUS_ERROR_INVALID_LED_POLARITY,   /**< Error: Invalid LED polarity */
+
+    // Animation statuses
+    LED_STATUS_ANIMATION_STARTED,              /**< Animation started */
+    LED_STATUS_ANIMATION_COMPLETED,            /**< Animation completed */
+    LED_STATUS_ANIMATION_TRANSITION_STARTED,   /**< Animation transitioning */
+    LED_STATUS_ANIMATION_TRANSITION_COMPLETED, /**< Animation transition completed */
+    LED_STATUS_ANIMATION_STOPPED,              /**< Animation stopped */
+
 } LED_Status_t;
+
+#define IS_LED_ERROR_STATUS(status) ((status) > LED_STATUS_SUCCESS && (status) <= LED_STATUS_ERROR_INVALID_LED_POLARITY)
 
 /** @brief Structure to represent a PWM channel. */
 typedef struct
@@ -113,25 +127,25 @@ typedef struct
 /** @brief Types of LED animations. */
 typedef enum
 {
-    LED_ANIMATION_INVALID = 0,
-    LED_ANIMATION_NONE,
-    LED_ANIMATION_OFF,
-    LED_ANIMATION_SOLID,
-    LED_ANIMATION_BLINK,
-    LED_ANIMATION_FLASH,
-    LED_ANIMATION_BREATH,
-    LED_ANIMATION_PULSE,
-    LED_ANIMATION_FADE_IN,
-    LED_ANIMATION_FADE_OUT,
-    LED_ANIMATION_ALTERNATING_COLORS, // Abruptly switches between colors based
-                                      // on durationMs.
-    LED_ANIMATION_COLOR_CYCLE,        // Smoothly transitions between colors over
-                                      // transitionMs.
+    LED_ANIMATION_TYPE_INVALID = 0,
+    LED_ANIMATION_TYPE_NONE,
+    LED_ANIMATION_TYPE_OFF,
+    LED_ANIMATION_TYPE_SOLID,
+    LED_ANIMATION_TYPE_BLINK,
+    LED_ANIMATION_TYPE_FLASH,
+    LED_ANIMATION_TYPE_BREATH,
+    LED_ANIMATION_TYPE_PULSE,
+    LED_ANIMATION_TYPE_FADE_IN,
+    LED_ANIMATION_TYPE_FADE_OUT,
+    LED_ANIMATION_TYPE_ALTERNATING_COLORS, // Abruptly switches between colors based
+                                           // on durationMs.
+    LED_ANIMATION_TYPE_COLOR_CYCLE,        // Smoothly transitions between colors over
+                                           // transitionMs.
     LED_ANIMATION_LAST
 
 } LED_Animation_Type_t;
 
-#define IS_VALID_LED_ANIMATION_TYPE(type) ((type > LED_ANIMATION_INVALID) && (type < LED_ANIMATION_LAST))
+#define IS_VALID_LED_ANIMATION_TYPE(type) ((type > LED_ANIMATION_TYPE_INVALID) && (type < LED_ANIMATION_LAST))
 
 /** @brief RGB color structure. */
 typedef struct
@@ -265,7 +279,7 @@ typedef struct
 /** @brief Structure for color cycle animation configuration. */
 typedef struct
 {
-    uint8_t* colors;       // Array of colors to cycle through
+    void*    colors;       // Array of colors to cycle through
     uint16_t colorCount;   // Number of colors in the array
     uint16_t transitionMs; // Duration of the transition between each color in
                            // milliseconds
@@ -382,7 +396,7 @@ LED_Status_t LED_Animation_Update(LED_Handle_t* this, uint32_t tick);
  *  @param this Pointer to the LED handle.
  *  @return LED status.
  */
-LED_Status_t LED_Animation_Stop(LED_Handle_t* this);
+LED_Status_t LED_Animation_Stop(LED_Handle_t* this, bool leaveLastColor);
 
 /** @brief Start the LED animation.
  *
@@ -406,7 +420,7 @@ LED_Status_t LED_Animation_SetOff(LED_Handle_t* this);
  *
  *  @return LED status.
  */
-LED_Status_t LED_Animation_GetColor(LED_Handle_t* this, uint8_t* color, uint8_t* colorCount);
+LED_Status_t LED_Animation_GetCurrentColor(LED_Handle_t* this, uint8_t* color, uint8_t colorCount);
 
 /** @brief Set the color of the LED.
  *
@@ -417,5 +431,12 @@ LED_Status_t LED_Animation_GetColor(LED_Handle_t* this, uint8_t* color, uint8_t*
  *  @return LED status.
  */
 uint32_t CalculateColorCount(LED_Type_t ledType);
+
+LED_Status_t LED_Animation_ExecuteColorSetting(LED_Handle_t* this, uint8_t* colorValues);
+
+LED_Status_t
+LED_Animation_GetTargetColor(void* animData, LED_Animation_Type_t animationType, uint8_t* color, uint8_t colorCount);
+
+bool LED_Animation_ShouldStartHigh(LED_Animation_Type_t animationType, void* animConfig);
 
 #endif // __LED_ANIMATION_H__
