@@ -74,6 +74,14 @@ static const CalculateFadeBrightness_t CalculateFadeBrightness = GetFadeBrightne
 
 #endif
 
+static void LED_Animation_CallCallbackIfExists(LED_Handle_t* this, LED_Status_t Status)
+{
+    if (this->callback != NULL)
+    {
+        this->callback(this->animationType, Status);
+    }
+}
+
 static LED_Status_t LED_Animation_SetCurrentColor(LED_Handle_t* this, uint8_t* colorValues, uint32_t colorCount)
 {
     if (this == NULL || colorValues == NULL)
@@ -309,10 +317,7 @@ LED_Status_t LED_Animation_ExecuteColorSetting(LED_Handle_t* this, uint8_t* colo
     if (result != LED_STATUS_SUCCESS)
     {
         // Stop the animation if an error occurred
-        if (this->callback != NULL)
-        {
-            this->callback(this->animationType, result);
-        }
+        LED_Animation_CallCallbackIfExists(this, result);
         this->animationType = LED_ANIMATION_TYPE_NONE;
     }
 
@@ -350,10 +355,7 @@ static LED_Status_t ExecuteDutyCycleSetting(LED_Handle_t* this, uint16_t* dutyCy
     if (result != LED_STATUS_SUCCESS)
     {
         // Stop the animation if an error occurred
-        if (this->callback != NULL)
-        {
-            this->callback(this->animationType, result);
-        }
+        LED_Animation_CallCallbackIfExists(this, result);
         this->animationType = LED_ANIMATION_TYPE_NONE;
     }
 
@@ -384,10 +386,7 @@ static LED_Status_t HandleRepeatLogic(LED_Handle_t* this, int32_t PatternRepeatT
     if (this->repeatTimes == 0)
     {
         this->isRunning = false;
-        if (this->callback != NULL)
-        {
-            this->callback(this->animationType, LED_STATUS_ANIMATION_COMPLETED);
-        }
+        LED_Animation_CallCallbackIfExists(this, LED_STATUS_ANIMATION_COMPLETED);
 
         if (StopOnCompletion)
         {
@@ -490,11 +489,7 @@ LED_Status_t LED_Animation_Start(LED_Handle_t* this)
 
     this->isRunning = true;
     this->startTime = 0;
-
-    if (this->callback != NULL)
-    {
-        this->callback(this->animationType, LED_STATUS_ANIMATION_STARTED);
-    }
+    LED_Animation_CallCallbackIfExists(this, LED_STATUS_ANIMATION_STARTED);
 
     LED_CONTROL_DBG_MSG("LED Animation Started\r\n");
 
@@ -520,10 +515,7 @@ LED_Status_t LED_Animation_Stop(LED_Handle_t* this, bool leaveLastColor)
     }
 
     // if the animation is running and the callback is not null, call the callback
-    if (this->isRunning && this->callback != NULL)
-    {
-        this->callback(this->animationType, LED_STATUS_ANIMATION_STOPPED);
-    }
+    LED_Animation_CallCallbackIfExists(this, LED_STATUS_ANIMATION_STOPPED);
 
     if (!leaveLastColor)
     {
@@ -624,6 +616,9 @@ LED_Status_t LED_Animation_Update(LED_Handle_t* this, uint32_t tick)
  */
 static LED_Status_t LED_AnimationNoneExecute(LED_Handle_t* this)
 {
+    /* No operation, IDLE state */
+    this->isRunning = false;
+
     return LED_STATUS_SUCCESS;
 }
 
@@ -665,14 +660,13 @@ static LED_Status_t LED_AnimationOffExecute(LED_Handle_t* this)
         return LED_STATUS_SUCCESS;
     }
 
-    this->controller->Stop();
-    this->isRunning = false;
+    LED_Animation_CallCallbackIfExists(this, LED_STATUS_ANIMATION_COMPLETED);
 
-    if (this->callback != NULL)
-    {
-        this->callback(this->animationType, LED_STATUS_SUCCESS);
-        this->animationType = LED_ANIMATION_TYPE_NONE;
-    }
+    memset(this->currentColor, 0, CalculateColorCount(this->controller->LedType));
+    LED_Animation_ExecuteColorSetting(this, this->currentColor);
+
+    this->isRunning     = false;
+    this->animationType = LED_ANIMATION_TYPE_NONE;
 
     return LED_STATUS_SUCCESS;
 }
@@ -700,6 +694,19 @@ LED_Status_t LED_Animation_SetSolid(LED_Handle_t* this, LED_Animation_Solid_t* S
     this->animationData = Solid;
     this->isRunning     = false;
     LED_CONTROL_DBG_MSG("LED Animation Solid\r\n");
+
+    return LED_STATUS_SUCCESS;
+}
+
+static LED_Status_t LED_Animation_ClearCurrentColor(LED_Handle_t* this)
+{
+    if (this == NULL)
+    {
+        return LED_STATUS_ERROR_NULL_POINTER;
+    }
+
+    memset(this->currentColor, 0, CalculateColorCount(this->controller->LedType));
+    LED_Animation_ExecuteColorSetting(this, this->currentColor);
 
     return LED_STATUS_SUCCESS;
 }
@@ -736,12 +743,9 @@ static LED_Status_t LED_AnimationSolidExecute(LED_Handle_t* this, uint32_t tick)
     if (Solid->executionTimeMs > 0 && elapsedTime >= Solid->executionTimeMs)
     {
         this->isRunning = false;
-        this->controller->Stop();
-
-        if (this->callback != NULL)
-        {
-            this->callback(this->animationType, LED_STATUS_ANIMATION_COMPLETED);
-        }
+        LED_Animation_ClearCurrentColor(this);
+        LED_Animation_CallCallbackIfExists(this, LED_STATUS_ANIMATION_COMPLETED);
+        this->animationType = LED_ANIMATION_TYPE_NONE;
     }
 
     return LED_STATUS_SUCCESS;
@@ -794,11 +798,7 @@ static LED_Status_t LED_AnimationFlashExecute(LED_Handle_t* this, uint32_t tick)
         this->repeatTimes = Flash->repeatTimes;
 
         // Execute color only once
-        LED_Status_t result = LED_Animation_ExecuteColorSetting(this, (uint8_t*)Flash->color);
-        if (result != LED_STATUS_SUCCESS)
-        {
-            return result;
-        }
+        LED_Animation_ExecuteColorSetting(this, (uint8_t*)Flash->color);
     }
 
     uint32_t elapsedTime   = tick - this->startTime;
@@ -808,21 +808,22 @@ static LED_Status_t LED_AnimationFlashExecute(LED_Handle_t* this, uint32_t tick)
     if (elapsedTime < Flash->onTimeMs)
     {
         this->controller->Start(); // LED on during the 'on' time
-        uint8_t colorCount = CalculateColorCount(this->controller->LedType);
-        memset(this->currentColor, (uint8_t*)Flash->color, colorCount);
+        LED_Animation_ExecuteColorSetting(this, (uint8_t*)Flash->color);
     }
     else if (elapsedTime < totalPeriodMs)
     {
         this->controller->Stop(); // LED off during the 'off' time
-        uint8_t colorCount = CalculateColorCount(this->controller->LedType);
-        memset(this->currentColor, 0, colorCount);
+        LED_Animation_ClearCurrentColor(this);
     }
 
     // Reset for the next cycle or handle the completion
     if (elapsedTime >= totalPeriodMs)
     {
         this->startTime = tick; // Reset the start time for the next cycle
-        HandleRepeatLogic(this, Flash->repeatTimes, false);
+        if (HandleRepeatLogic(this, Flash->repeatTimes, false) == LED_STATUS_ANIMATION_COMPLETED)
+        {
+            this->animationType = LED_ANIMATION_TYPE_NONE;
+        }
     }
 
     return LED_STATUS_SUCCESS;
@@ -863,11 +864,7 @@ static LED_Status_t LED_AnimationBlinkExecute(LED_Handle_t* this, uint32_t tick)
         this->repeatTimes = Blink->repeatTimes;
 
         // Execute color only once
-        LED_Status_t result = LED_Animation_ExecuteColorSetting(this, (uint8_t*)Blink->color);
-        if (result != LED_STATUS_SUCCESS)
-        {
-            return result;
-        }
+        LED_Animation_ExecuteColorSetting(this, (uint8_t*)Blink->color);
     }
 
     uint32_t elapsedTime = tick - this->startTime;
@@ -876,23 +873,23 @@ static LED_Status_t LED_AnimationBlinkExecute(LED_Handle_t* this, uint32_t tick)
     if (elapsedTime >= Blink->periodMs)
     {
         this->startTime = tick;
-        HandleRepeatLogic(this, Blink->repeatTimes, false);
+        if (HandleRepeatLogic(this, Blink->repeatTimes, false) == LED_STATUS_ANIMATION_COMPLETED)
+        {
+            this->animationType = LED_ANIMATION_TYPE_NONE;
+        }
     }
     else if (elapsedTime >= Blink->periodMs / 2)
     {
         // Turn LED off after half the period
         this->controller->Stop();
-        uint8_t colorCount = CalculateColorCount(this->controller->LedType);
-        memset(this->currentColor, 0, colorCount);
+        LED_Animation_ClearCurrentColor(this);
     }
     else
     {
         // Turn LED on for the first half of the period
         this->controller->Start();
-        uint8_t colorCount = CalculateColorCount(this->controller->LedType);
-        memset(this->currentColor, (uint8_t*)Blink->color, colorCount);
+        LED_Animation_ExecuteColorSetting(this, (uint8_t*)Blink->color);
     }
-
     return LED_STATUS_SUCCESS;
 }
 
@@ -1154,30 +1151,16 @@ static LED_Status_t LED_AnimationBreathExecute(LED_Handle_t* this, uint32_t tick
 #endif
     }
 
-    // print colors for debugging
-    static uint8_t print_once = 1;
-    if (print_once)
-    {
-        print_once = 0;
-        LED_CONTROL_DBG_MSG("timeInCycle %d, Color: %d, %d, %d\r\n",
-                            timeInCycle,
-                            dutyCycleValues[0],
-                            dutyCycleValues[1],
-                            dutyCycleValues[2]);
-    }
-
-    LED_Status_t result = ExecuteDutyCycleSetting(this, dutyCycleValues);
-    if (result != LED_STATUS_SUCCESS)
-    {
-        return result;
-    }
+    ExecuteDutyCycleSetting(this, dutyCycleValues);
 
     if (elapsedTime >= totalCycleTimeMs)
     {
-        printf("Repeat Times: %d\r\n", this->repeatTimes);
         this->startTime       = tick;
         bool StopOnCompletion = Breath->invert ? false : true;
-        HandleRepeatLogic(this, Breath->repeatTimes, StopOnCompletion);
+        if (HandleRepeatLogic(this, Breath->repeatTimes, StopOnCompletion) == LED_STATUS_ANIMATION_COMPLETED)
+        {
+            this->animationType = LED_ANIMATION_TYPE_NONE;
+        }
     }
 
     return LED_STATUS_SUCCESS;
@@ -1215,13 +1198,11 @@ static LED_Status_t LED_AnimationFadeInExecute(LED_Handle_t* this, uint32_t tick
     {
         this->startTime   = tick;
         this->repeatTimes = FadeIn->repeatTimes;
-        LED_CONTROL_DBG_MSG("Repeat times: %d\r\n", FadeIn->repeatTimes);
         this->controller->Start();
     }
 
     uint32_t elapsedTime = tick - this->startTime;
-
-    uint32_t colorCount = CalculateColorCount(this->controller->LedType);
+    uint32_t colorCount  = CalculateColorCount(this->controller->LedType);
     uint16_t dutyCycleValues[colorCount];
     for (uint32_t i = 0; i < colorCount; i++)
     {
@@ -1242,16 +1223,15 @@ static LED_Status_t LED_AnimationFadeInExecute(LED_Handle_t* this, uint32_t tick
 #endif
     }
 
-    LED_Status_t result = ExecuteDutyCycleSetting(this, dutyCycleValues);
-    if (result != LED_STATUS_SUCCESS)
-    {
-        return result;
-    }
+    ExecuteDutyCycleSetting(this, dutyCycleValues);
 
     if (elapsedTime >= FadeIn->durationMs)
     {
-        HandleRepeatLogic(this, FadeIn->repeatTimes, false);
         this->startTime = tick;
+        if (HandleRepeatLogic(this, FadeIn->repeatTimes, false) == LED_STATUS_ANIMATION_COMPLETED)
+        {
+            this->animationType = LED_ANIMATION_TYPE_NONE;
+        }
     }
 
     return LED_STATUS_SUCCESS;
@@ -1293,10 +1273,9 @@ static LED_Status_t LED_AnimationFadeOutExecute(LED_Handle_t* this, uint32_t tic
     }
 
     uint32_t elapsedTime = tick - this->startTime;
-
-    uint32_t colorCount = CalculateColorCount(this->controller->LedType);
-
+    uint32_t colorCount  = CalculateColorCount(this->controller->LedType);
     uint16_t dutyCycleValues[colorCount];
+
     for (uint32_t i = 0; i < colorCount; i++)
     {
         // Calculate the maximum duty cycle based on the maximum brightness level of the LED.
@@ -1314,16 +1293,15 @@ static LED_Status_t LED_AnimationFadeOutExecute(LED_Handle_t* this, uint32_t tic
 #endif
     }
 
-    LED_Status_t result = ExecuteDutyCycleSetting(this, dutyCycleValues);
-    if (result != LED_STATUS_SUCCESS)
-    {
-        return result;
-    }
+    ExecuteDutyCycleSetting(this, dutyCycleValues);
 
     if (elapsedTime >= FadeOut->durationMs)
     {
-        HandleRepeatLogic(this, FadeOut->repeatTimes, true);
         this->startTime = tick;
+        if (HandleRepeatLogic(this, FadeOut->repeatTimes, true) == LED_STATUS_ANIMATION_COMPLETED)
+        {
+            this->animationType = LED_ANIMATION_TYPE_NONE;
+        }
     }
 
     return LED_STATUS_SUCCESS;
@@ -1422,23 +1400,15 @@ static LED_Status_t LED_AnimationPulseExecute(LED_Handle_t* this, uint32_t tick)
 #endif
     }
 
-    LED_Status_t result = ExecuteDutyCycleSetting(this, dutyCycleValues);
-    if (result != LED_STATUS_SUCCESS)
-    {
-        return result;
-    }
-
-    // end_cycles = DWT->CYCCNT;
-
-    // total_cycles1 = end_cycles - start_cycles;
-    // LED_CONTROL_DBG_MSG("Cycles1 = %d\r\n", total_cycles1);
-
-    // LED_CONTROL_DBG_MSG("Cycles2 = %d\r\n", total_cycles1 + total_cycles2);
+    ExecuteDutyCycleSetting(this, dutyCycleValues);
 
     if (elapsedTime >= totalCycleTimeMs)
     {
         this->startTime = tick;
-        HandleRepeatLogic(this, Pulse->repeatTimes, false);
+        if (HandleRepeatLogic(this, Pulse->repeatTimes, false) == LED_STATUS_ANIMATION_COMPLETED)
+        {
+            this->animationType = LED_ANIMATION_TYPE_NONE;
+        }
     }
 
     return LED_STATUS_SUCCESS;
@@ -1501,21 +1471,16 @@ static LED_Status_t LED_AnimationAlternatingColorsExecute(LED_Handle_t* this, ui
     uint8_t* currentColor = ((uint8_t**)AlternatingColors->colors)[colorIndex];
 
     // Set the LED color
-    LED_Status_t result = LED_Animation_ExecuteColorSetting(this, currentColor);
-    if (result != LED_STATUS_SUCCESS)
-    {
-        return result;
-    }
+    LED_Animation_ExecuteColorSetting(this, currentColor);
 
     // Check if the animation should stop after the specified number of repeats
     if (AlternatingColors->repeatTimes != -1 && elapsedTime >= cycleTimeMs * AlternatingColors->repeatTimes)
     {
         this->isRunning = false;
         this->controller->Stop();
-        if (this->callback != NULL)
-        {
-            this->callback(this->animationType, LED_STATUS_SUCCESS);
-        }
+        LED_Animation_ClearCurrentColor(this);
+        LED_Animation_CallCallbackIfExists(this, LED_STATUS_ANIMATION_COMPLETED);
+        this->animationType = LED_ANIMATION_TYPE_NONE;
     }
 
     return LED_STATUS_SUCCESS;
@@ -1587,17 +1552,17 @@ static LED_Status_t LED_AnimationColorCycleExecute(LED_Handle_t* this, uint32_t 
     // Transition phase
     else
     {
-        float   fraction             = (timeInCycle - ColorCycle->holdTimeMs) / (float)ColorCycle->transitionMs;
-        uint8_t r                    = currentColor[0] + fraction * (nextColor[0] - currentColor[0]);
-        uint8_t g                    = currentColor[1] + fraction * (nextColor[1] - currentColor[1]);
-        uint8_t b                    = currentColor[2] + fraction * (nextColor[2] - currentColor[2]);
-        uint8_t interpolatedColor[3] = {r, g, b};
+        float   fraction   = (timeInCycle - ColorCycle->holdTimeMs) / (float)ColorCycle->transitionMs;
+        uint8_t colorCount = CalculateColorCount(this->controller->LedType);
+        uint8_t interpolatedColor[colorCount];
 
-        LED_Status_t result = LED_Animation_ExecuteColorSetting(this, interpolatedColor);
-        if (result != LED_STATUS_SUCCESS)
+        for (uint32_t i = 0; i < colorCount; i++)
         {
-            return result;
+            uint8_t color        = currentColor[i] + fraction * (nextColor[i] - currentColor[i]);
+            interpolatedColor[i] = color;
         }
+
+        LED_Animation_ExecuteColorSetting(this, interpolatedColor);
     }
 
     // Handle animation completion and repetition
@@ -1605,7 +1570,10 @@ static LED_Status_t LED_AnimationColorCycleExecute(LED_Handle_t* this, uint32_t 
     {
         this->startTime       = tick;
         bool StopOnCompletion = ColorCycle->leaveLastColor ? false : true;
-        HandleRepeatLogic(this, ColorCycle->repeatTimes, StopOnCompletion);
+        if (HandleRepeatLogic(this, ColorCycle->repeatTimes, StopOnCompletion) == LED_STATUS_ANIMATION_COMPLETED)
+        {
+            this->animationType = LED_ANIMATION_TYPE_NONE;
+        }
     }
 
     return LED_STATUS_SUCCESS;
@@ -1634,10 +1602,7 @@ LED_Status_t LED_Animation_GetCurrentColor(LED_Handle_t* this, uint8_t* color, u
         return LED_STATUS_ERROR_NULL_POINTER;
     }
 
-    for (uint32_t i = 0; i < colorCount; i++)
-    {
-        color[i] = this->currentColor[i];
-    }
+    memcpy(color, this->currentColor, colorCount);
 
     return LED_STATUS_SUCCESS;
 }
@@ -1665,7 +1630,6 @@ LED_Status_t LED_Animation_GetTargetColor(void* animData, LED_Animation_Type_t T
         for (uint32_t i = 0; i < colorCount; i++)
         {
             color[i] = animColor[i];
-            LED_CONTROL_DBG_MSG("Color[%d]: %d\r\n", i, color[i]);
         }
         break;
     }
@@ -1674,15 +1638,16 @@ LED_Status_t LED_Animation_GetTargetColor(void* animData, LED_Animation_Type_t T
     case LED_ANIMATION_TYPE_COLOR_CYCLE:
     {
         // For multi-color animations, only return the first color in the array
-        uint8_t* colorsArray = (uint8_t*)animData;
-        for (uint32_t i = 0; i < colorCount; i++)
+        LED_Animation_AlternatingColors_t* config      = (LED_Animation_AlternatingColors_t*)animData;
+        uint8_t*                           targetColor = ((uint8_t**)config->colors)[0];
+
+        for (uint16_t i = 0; i < colorCount; i++)
         {
-            color[i] = colorsArray[i];
-            LED_CONTROL_DBG_MSG("Color[%d]: %d\r\n", i, color[i]);
+            color[i] = targetColor[i];
+            LED_CONTROL_DBG_MSG("MC Color %d: %d\r\n", i, color[i]);
         }
         break;
     }
-
     default:
         return LED_STATUS_ERROR_INVALID_ANIMATION_TYPE;
     }
@@ -1690,47 +1655,40 @@ LED_Status_t LED_Animation_GetTargetColor(void* animData, LED_Animation_Type_t T
     return LED_STATUS_SUCCESS;
 }
 
+/**
+ * @brief Determines if the LED animation should start in a high state.
+ *
+ * @param animationType The type of LED animation.
+ * @param animConfig Pointer to the animation configuration, used for specific animation types.
+ * @return true if the animation should start high, false otherwise.
+ */
 bool LED_Animation_ShouldStartHigh(LED_Animation_Type_t animationType, void* animConfig)
 {
     switch (animationType)
     {
     case LED_ANIMATION_TYPE_SOLID:
-    {
-        return true;
-    }
     case LED_ANIMATION_TYPE_BLINK:
-    {
-        return true;
-    }
     case LED_ANIMATION_TYPE_FLASH:
-    {
+    case LED_ANIMATION_TYPE_FADE_OUT:
+    case LED_ANIMATION_TYPE_ALTERNATING_COLORS:
         return true;
+
+    case LED_ANIMATION_TYPE_COLOR_CYCLE:
+    {
+        LED_Animation_ColorCycle_t* config = (LED_Animation_ColorCycle_t*)animConfig;
+        return config->leaveLastColor;
     }
+
     case LED_ANIMATION_TYPE_BREATH:
     {
         LED_Animation_Breath_t* config = (LED_Animation_Breath_t*)animConfig;
-        return config->invert ? true : false;
+        return config->invert;
     }
+
     case LED_ANIMATION_TYPE_FADE_IN:
-    {
-        return false; // Always starts low
-    }
-    case LED_ANIMATION_TYPE_FADE_OUT:
-    {
-        return true; // Always starts high
-    }
     case LED_ANIMATION_TYPE_PULSE:
-    {
         return false;
-    }
-    case LED_ANIMATION_TYPE_ALTERNATING_COLORS:
-    {
-        return true;
-    }
-    case LED_ANIMATION_TYPE_COLOR_CYCLE:
-    {
-        return true;
-    }
+
     default:
         return false; // Default to low if unknown animation type
     }

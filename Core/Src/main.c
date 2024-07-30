@@ -183,7 +183,7 @@ const LED_Animation_AlternatingColors_t globalAlternatingColorsConfig = {
     .colors      = (void*)AlternatingColors,
     .colorCount  = sizeof(AlternatingColors) / sizeof(AlternatingColors[0]),
     .durationMs  = 1000, // 500 ms for each color
-    .repeatTimes = 1,    // Repeat 3 times
+    .repeatTimes = 2,    // Repeat 3 times
 };
 
 const LED_Animation_ColorCycle_t globalColorCycleConfig = {.colors = (void*)AlternatingColors,
@@ -191,20 +191,26 @@ const LED_Animation_ColorCycle_t globalColorCycleConfig = {.colors = (void*)Alte
                                                                sizeof(AlternatingColors) / sizeof(AlternatingColors[0]),
                                                            .transitionMs   = 300,
                                                            .holdTimeMs     = 700,
-                                                           .repeatTimes    = 3,
+                                                           .repeatTimes    = 1,
                                                            .leaveLastColor = true};
 
 // Global LED Handle for RGB LED
 LED_Handle_t            MyLed;
 LED_Transition_Handle_t TransitionsHandle;
 
-#define MAX_TRANSITIONS (1)
+#define MAX_TRANSITIONS (9)
 const LED_Transition_Config_t transitionMapping[MAX_TRANSITIONS] = {
-    {.StartAnim = &globalSolidConfig, .EndAnim = &globalFlashConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
+    {.StartAnim      = &globalSolidConfig,
+     .EndAnim        = &globalFlashConfig,
+     .TransitionType = LED_TRANSITION_INTERPOLATE,
+     .Duration       = 5000},
     {.StartAnim = &globalBreathConfig, .EndAnim = &globalBreath2Config, .TransitionType = LED_TRANSITION_INTERPOLATE},
     {.StartAnim = &globalBreath2Config, .EndAnim = &globalBlinkConfig, .TransitionType = LED_TRANSITION_AT_CLEAN_ENTRY},
     {.StartAnim = &globalBlinkConfig, .EndAnim = &globalSolidConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
-    {.StartAnim = &globalSolidConfig, .EndAnim = &globalBlinkConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
+    {.StartAnim      = &globalSolidConfig,
+     .EndAnim        = &globalBlinkConfig,
+     .TransitionType = LED_TRANSITION_INTERPOLATE,
+     .Duration       = 500},
     {.StartAnim = &globalBlinkConfig, .EndAnim = &globalBreath2Config, .TransitionType = LED_TRANSITION_INTERPOLATE},
     {.StartAnim = &globalBreath2Config, .EndAnim = &globalBreathConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
     {.StartAnim = &globalBreathConfig, .EndAnim = &globalPulseConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
@@ -335,8 +341,7 @@ int main(void)
 
     LED_Transition_SetMapping(&TransitionsHandle, transitionMapping, MAX_TRANSITIONS);
 
-    // Start the LED Animation
-    LED_Transition_ExecAnimation(&TransitionsHandle, &globalSolidConfig, LED_ANIMATION_TYPE_SOLID);
+    // LED_Animation_Start(&MyLed);
 
     /* USER CODE END 2 */
     static uint32_t lastTick = 0;
@@ -350,6 +355,7 @@ int main(void)
 
         /* USER CODE BEGIN 3 */
         // LED_Animation_Update(&MyLed, HAL_GetTick());
+#if 1
         LED_Transition_Update(&TransitionsHandle, HAL_GetTick());
 
         if (HAL_GetTick() - lastTick > 5000)
@@ -359,25 +365,36 @@ int main(void)
             switch (counter)
             {
             case 0:
+                // Start the LED Animation
+                LED_Transition_ExecAnimation(&TransitionsHandle, &globalSolidConfig, LED_ANIMATION_TYPE_SOLID);
+                break;
+            case 1:
                 // Transition from solid to breath
                 LED_Transition_ExecAnimation(&TransitionsHandle, &globalBlinkConfig, LED_ANIMATION_TYPE_BLINK);
                 break;
-            case 1:
+            case 2:
                 // Transition from breath to breath2
                 LED_Transition_ExecAnimation(&TransitionsHandle, &globalBreath2Config, LED_ANIMATION_TYPE_BREATH);
                 break;
-            case 2:
+            case 3:
                 // Transition from breath2 to blink
                 LED_Transition_ExecAnimation(&TransitionsHandle, &globalBreathConfig, LED_ANIMATION_TYPE_BREATH);
                 break;
-            case 3:
+            case 4:
                 // Transition from blink to solid
                 LED_Transition_ExecAnimation(&TransitionsHandle, &globalPulseConfig, LED_ANIMATION_TYPE_PULSE);
                 break;
-            case 4:
+            case 5:
                 LED_Transition_ExecAnimation(&TransitionsHandle, &globalFlashConfig, LED_ANIMATION_TYPE_FLASH);
+                break;
+            case 6:
+                LED_Transition_ExecAnimation(
+                    &TransitionsHandle, &globalAlternatingColorsConfig, LED_ANIMATION_TYPE_ALTERNATING_COLORS);
+                break;
+            case 7:
+                LED_Transition_ExecAnimation(
+                    &TransitionsHandle, &globalColorCycleConfig, LED_ANIMATION_TYPE_COLOR_CYCLE);
                 counter = 0;
-
                 break;
 
             default:
@@ -386,6 +403,7 @@ int main(void)
 
             counter++;
         }
+#endif
     }
     /* USER CODE END 3 */
 }

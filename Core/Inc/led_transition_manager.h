@@ -16,9 +16,9 @@
 #define USE_LINEAR_INTERPOLATION 0
 #define USE_QUADRATIC_INTERPOLATION 1
 
-#define TRANSITION_AT_CLEAN_ENTRY_TIMEOUT_MS 2000
-#define TRANSITION_UPON_COMPLETION_TIMEOUT_MS 5000
-#define TRANSITION_INTERPOLATE_TIME_MS 200
+#define DEFAULT_TRANSITION_CLEAN_ENTRY_TIMEOUT_MS 2000
+#define DEFAULT_TRANSITION_UPON_COMPLETION_TIMEOUT_MS 5000
+#define DEFAULT_TRANSITION_INTERPOLATE_TIME_MS 200
 
 /**
  * @brief Enum for different types of LED transitions.
@@ -37,12 +37,18 @@ typedef enum
 
 /**
  * @brief Structure for configuring an LED transition.
+ * @note: Duration of the transition, meaning varies with TransitionType
+ * - For LED_TRANSITION_IMMINENT: This field is ignored
+ * - For LED_TRANSITION_INTERPOLATE: Time in milliseconds to interpolate between animations
+ * - For LED_TRANSITION_UPON_COMPLETION: Maximum wait time in milliseconds before force switching
+ * - For LED_TRANSITION_AT_CLEAN_ENTRY: Maximum wait time in milliseconds before force switching
  */
 typedef struct
 {
     const void*           StartAnim;      /**< Pointer to the starting animation configuration */
     const void*           EndAnim;        /**< Pointer to the target animation configuration */
     LED_Transition_Type_t TransitionType; /**< Type of transition */
+    uint16_t              Duration;       /**< Duration of the transition, meaning varies with TransitionType */
 } LED_Transition_Config_t;
 
 typedef enum
@@ -60,13 +66,14 @@ typedef enum
 typedef struct
 {
     const void*            transitionMap;
-    uint32_t               mapSize;
+    uint8_t                mapSize;
     LED_Handle_t*          LedHandle;
     void*                  targetAnimData;
     LED_Animation_Type_t   targetAnimType;
     LED_Transition_Type_t  transitionType;
     LED_Transition_State_t state;
     uint32_t               lastTick;
+    uint16_t               Duration;
     uint8_t                currentColor[MAX_COLOR_CHANNELS]; /**< Current color of the LED. */
     uint8_t                targetColor[MAX_COLOR_CHANNELS];  /**< Target color of the LED. */
 } LED_Transition_Handle_t;
