@@ -1,7 +1,8 @@
 #include "led_transition_manager.h"
+#include <stddef.h> // For NULL
 
 #define DEBUG_BUFFER_SIZE 100
-#define LED_TRANSITION_DBG 1
+#define LED_TRANSITION_DBG 0
 
 #if LED_TRANSITION_DBG
 #include "stm32l4xx_hal.h"
@@ -128,7 +129,7 @@ static void LED_Transition_SetDefaultType(LED_Transition_Handle_t* this)
 
 static void LED_Transition_HandleInterpolate(LED_Transition_Handle_t* this)
 {
-    uint32_t colorCount = CalculateColorCount(this->LedHandle->controller->LedType);
+    uint32_t colorCount = LED_Animation_GetColorCount(this->LedHandle->controller->LedType);
     LED_TRANSITION_DBG_MSG("LED Color Count: %d\r\n", colorCount);
 
     LED_Animation_GetCurrentColor(this->LedHandle, this->currentColor, colorCount);
@@ -209,6 +210,8 @@ static LED_Status_t LED_Transition_StateCompleted(LED_Transition_Handle_t* this)
     this->targetAnimType = LED_ANIMATION_TYPE_INVALID;
     this->transitionType = LED_TRANSITION_INVALID;
     LED_Transition_SetNextState(this, LED_TRANSITION_STATE_IDLE);
+
+    return LED_STATUS_SUCCESS;
 }
 
 static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, uint32_t tick)
@@ -237,12 +240,13 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
         else
         {
 #if USE_LINEAR_INTERPOLATION
-            PerformLinearInterpolation(this->LedHandle, elapsed, this->Duration, this->currentColor, this->targetColor);
+            LED_Animation_PerformLinearInterpolation(this->LedHandle, elapsed, this->Duration, this->currentColor,
+                                                     this->targetColor);
 #endif
 
 #if USE_QUADRATIC_INTERPOLATION
-            PerformQuadraticInterpolation(this->LedHandle, elapsed, this->Duration, this->currentColor,
-                                          this->targetColor);
+            LED_Animation_PerformQuadraticInterpolation(this->LedHandle, elapsed, this->Duration, this->currentColor,
+                                                        this->targetColor);
 #endif
         }
     }
@@ -266,9 +270,9 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
 
     case LED_TRANSITION_AT_CLEAN_ENTRY:
     {
-        uint8_t colorCount = CalculateColorCount(this->LedHandle->animationType);
+        uint8_t colorCount = LED_Animation_GetColorCount(this->LedHandle->animationType);
         uint8_t color[colorCount];
-        LED_Animation_GetCurrentColor(this->LedHandle, color, &colorCount);
+        LED_Animation_GetCurrentColor(this->LedHandle, color, colorCount);
 
         if (AreColorsOff(color, colorCount))
         {
@@ -283,6 +287,10 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
         }
     }
     break;
+
+    default:
+        LED_TRANSITION_DBG_MSG("Invalid Transition Type\r\n");
+        break;
     }
 
     return LED_STATUS_SUCCESS;

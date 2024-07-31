@@ -12,6 +12,7 @@
 
 #include "led_animation.h"
 
+// Default transition times
 #define DEFAULT_TRANSITION_CLEAN_ENTRY_TIMEOUT_MS 2000
 #define DEFAULT_TRANSITION_UPON_COMPLETION_TIMEOUT_MS 5000
 #define DEFAULT_TRANSITION_INTERPOLATE_TIME_MS 200
@@ -49,27 +50,27 @@ typedef struct
 
 typedef enum
 {
-    LED_TRANSITION_STATE_INVALID = 0,
-    LED_TRANSITION_STATE_IDLE,
-    LED_TRANSITION_STATE_SETUP,
-    LED_TRANSITION_STATE_ONGOING,
-    LED_TRANSITION_STATE_COMPLETED,
-    LED_TRANSITION_STATE_LAST,
+    LED_TRANSITION_STATE_INVALID = 0, /**< State indicating an invalid or uninitialized transition. */
+    LED_TRANSITION_STATE_IDLE,        /**< State indicating the transition is idle and not active. */
+    LED_TRANSITION_STATE_SETUP,       /**< State indicating the transition is being set up. */
+    LED_TRANSITION_STATE_ONGOING,     /**< State indicating the transition is currently in progress. */
+    LED_TRANSITION_STATE_COMPLETED,   /**< State indicating the transition has been completed. */
+    LED_TRANSITION_STATE_LAST,        /**< Marker for the last valid state; used for validation purposes. */
 } LED_Transition_State_t;
 
 #define IS_VALID_TRANSITION_STATE(state) ((state) > LED_TRANSITION_STATE_INVALID && (state) < LED_TRANSITION_STATE_LAST)
 
 typedef struct
 {
-    const void*            transitionMap;
-    uint8_t                mapSize;
-    LED_Handle_t*          LedHandle;
-    void*                  targetAnimData;
-    LED_Animation_Type_t   targetAnimType;
-    LED_Transition_Type_t  transitionType;
-    LED_Transition_State_t state;
-    uint32_t               lastTick;
-    uint16_t               Duration;
+    const void*            transitionMap;                    /**< Pointer to the transition map. */
+    LED_Handle_t*          LedHandle;                        /**< Pointer to the LED handle. */
+    const void*            targetAnimData;                   /**< Pointer to the target animation data. */
+    uint32_t               lastTick;                         /**< Last tick value. */
+    uint16_t               Duration;                         /**< Duration of the transition. */
+    uint8_t                mapSize;                          /**< Size of the transition map. */
+    LED_Animation_Type_t   targetAnimType;                   /**< Type of the target animation. */
+    LED_Transition_Type_t  transitionType;                   /**< Type of the transition. */
+    LED_Transition_State_t state;                            /**< State of the transition. */
     uint8_t                currentColor[MAX_COLOR_CHANNELS]; /**< Current color of the LED. */
     uint8_t                targetColor[MAX_COLOR_CHANNELS];  /**< Target color of the LED. */
 } LED_Transition_Handle_t;

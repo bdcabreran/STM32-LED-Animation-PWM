@@ -196,13 +196,12 @@ typedef void (*LED_Animation_Complete_Callback)(LED_Animation_Type_t animationTy
 typedef struct
 {
     LED_Controller_t*               controller;    /**< Pointer to the LED controller. */
-    LED_Animation_Type_t            animationType; /**< Type of the LED animation. */
-    bool                            isRunning;     /**< Flag to indicate if the animation is running. */
     void*                           animationData; /**< Pointer to the animation data. */
-    uint32_t                        startTime;     /**< Start time of the animation. */
-    uint32_t                        lastTick;      /**< Last tick value. */
     LED_Animation_Complete_Callback callback;      /**< pattern completion. */
+    uint32_t                        startTime;     /**< Start time of the animation. */
+    LED_Animation_Type_t            animationType; /**< Type of the LED animation. */
     int8_t                          repeatTimes;   /**< Number of times to repeat the animation. */
+    bool                            isRunning;     /**< Flag to indicate if the animation is running. */
     uint8_t                         currentColor[MAX_COLOR_CHANNELS]; /**< Current color of the LED. */
 } LED_Handle_t;
 
@@ -434,7 +433,7 @@ LED_Status_t LED_Animation_GetCurrentColor(LED_Handle_t* this, uint8_t* color, u
  *
  *  @return LED status.
  */
-uint32_t CalculateColorCount(LED_Type_t ledType);
+uint8_t LED_Animation_GetColorCount(LED_Type_t ledType);
 
 /** @brief Execute the color setting.
  *
@@ -468,14 +467,34 @@ LED_Status_t LED_Animation_GetTargetColor(void* animData, LED_Animation_Type_t T
  */
 bool LED_Animation_ShouldStartHigh(LED_Animation_Type_t animationType, void* animConfig);
 
+/** @brief Perform Quadratic interpolation between two colors.
+ *
+ *  @param this Pointer to the LED handle.
+ *  @param elapsed Time elapsed since the start of the animation.
+ *  @param duration Duration of the animation.
+ *  @param currentColor Pointer to the current color.
+ *  @param targetColor Pointer to the target color.
+ *
+ *  @return LED status.
+ */
 #if USE_LED_ANIMATION_QUADRATIC
-void PerformQuadraticInterpolation(LED_Handle_t* this, uint32_t elapsed, uint32_t duration, uint8_t* currentColor,
-                                   uint8_t* targetColor);
+void LED_Animation_PerformQuadraticInterpolation(LED_Handle_t* this, uint32_t elapsed, uint32_t duration,
+                                                 uint8_t* currentColor, uint8_t* targetColor);
 #endif
 
+/** @brief Perform Linear interpolation between two colors.
+ *
+ *  @param this Pointer to the LED handle.
+ *  @param elapsed Time elapsed since the start of the animation.
+ *  @param duration Duration of the animation.
+ *  @param currentColor Pointer to the current color.
+ *  @param targetColor Pointer to the target color.
+ *
+ *  @return LED status.
+ */
 #if USE_LED_ANIMATION_EXPONENTIAL
-void PerformLinearInterpolation(LED_Handle_t* this, uint32_t elapsed, uint32_t duration, uint8_t* currentColor,
-                                uint8_t* targetColor);
+void LED_Animation_PerformLinearInterpolation(LED_Handle_t* this, uint32_t elapsed, uint32_t duration,
+                                              uint8_t* currentColor, uint8_t* targetColor);
 #endif
 
 #endif // __LED_ANIMATION_H__
