@@ -191,8 +191,8 @@ const LED_Animation_ColorCycle_t globalColorCycleConfig = {.colors = (void*)Alte
                                                                sizeof(AlternatingColors) / sizeof(AlternatingColors[0]),
                                                            .transitionMs   = 300,
                                                            .holdTimeMs     = 700,
-                                                           .repeatTimes    = 1,
-                                                           .leaveLastColor = true};
+                                                           .repeatTimes    = 2,
+                                                           .leaveLastColor = false};
 
 // Global LED Handle for RGB LED
 LED_Handle_t            MyLed;
@@ -329,7 +329,7 @@ int main(void)
     LED_Transition_Init(&TransitionsHandle, &MyLed);
 
     // Set the blink animation for the single LED
-    // LED_Animation_SetSolid(&MyLed, &globalSolidConfig);
+    LED_Animation_SetSolid(&MyLed, &globalSolidConfig);
     // LED_Animation_SetFlash(&MyLed, &globalFlashConfig);
     // LED_Animation_SetBlink(&MyLed, &globalBlinkConfig);
     // LED_Animation_SetFadeIn(&MyLed, &globalFadeInConfig);
@@ -349,6 +349,11 @@ int main(void)
     uint8_t         counter  = 0;
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
+
+    LED_Transition_ExecAnimation(&TransitionsHandle, &globalColorCycleConfig, LED_ANIMATION_TYPE_COLOR_CYCLE);
+
+    // LED_Transition_ExecAnimation(&TransitionsHandle, &globalSolidConfig, LED_ANIMATION_TYPE_SOLID);
+
     while (1)
     {
         /* USER CODE END WHILE */
@@ -366,36 +371,37 @@ int main(void)
             {
             case 0:
                 // Start the LED Animation
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalSolidConfig, LED_ANIMATION_TYPE_SOLID);
+                // LED_Transition_ExecAnimation(&TransitionsHandle, &globalSolidConfig, LED_ANIMATION_TYPE_SOLID);
+
                 break;
             case 1:
                 // Transition from solid to breath
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalBlinkConfig, LED_ANIMATION_TYPE_BLINK);
+                // LED_Transition_ExecAnimation(&TransitionsHandle, &globalBlinkConfig, LED_ANIMATION_TYPE_BLINK);
                 break;
-            case 2:
-                // Transition from breath to breath2
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalBreath2Config, LED_ANIMATION_TYPE_BREATH);
-                break;
-            case 3:
-                // Transition from breath2 to blink
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalBreathConfig, LED_ANIMATION_TYPE_BREATH);
-                break;
-            case 4:
-                // Transition from blink to solid
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalPulseConfig, LED_ANIMATION_TYPE_PULSE);
-                break;
-            case 5:
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalFlashConfig, LED_ANIMATION_TYPE_FLASH);
-                break;
-            case 6:
-                LED_Transition_ExecAnimation(
-                    &TransitionsHandle, &globalAlternatingColorsConfig, LED_ANIMATION_TYPE_ALTERNATING_COLORS);
-                break;
-            case 7:
-                LED_Transition_ExecAnimation(
-                    &TransitionsHandle, &globalColorCycleConfig, LED_ANIMATION_TYPE_COLOR_CYCLE);
-                counter = 0;
-                break;
+                // case 2:
+                //     // Transition from breath to breath2
+                //     LED_Transition_ExecAnimation(&TransitionsHandle, &globalBreath2Config,
+                //     LED_ANIMATION_TYPE_BREATH); break;
+                // case 3:
+                //     // Transition from breath2 to blink
+                //     LED_Transition_ExecAnimation(&TransitionsHandle, &globalBreathConfig, LED_ANIMATION_TYPE_BREATH);
+                //     break;
+                // case 4:
+                //     // Transition from blink to solid
+                //     LED_Transition_ExecAnimation(&TransitionsHandle, &globalPulseConfig, LED_ANIMATION_TYPE_PULSE);
+                //     break;
+                // case 5:
+                //     LED_Transition_ExecAnimation(&TransitionsHandle, &globalFlashConfig, LED_ANIMATION_TYPE_FLASH);
+                //     break;
+                // case 6:
+                //     LED_Transition_ExecAnimation(&TransitionsHandle, &globalAlternatingColorsConfig,
+                //                                  LED_ANIMATION_TYPE_ALTERNATING_COLORS);
+                //     break;
+                // case 7:
+                //     LED_Transition_ExecAnimation(&TransitionsHandle, &globalColorCycleConfig,
+                //                                  LED_ANIMATION_TYPE_COLOR_CYCLE);
+                //     counter = 0;
+                //     break;
 
             default:
                 break;

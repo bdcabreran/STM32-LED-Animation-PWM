@@ -17,7 +17,7 @@
 #define PI 3.14159
 
 #define DEBUG_BUFFER_SIZE 100
-#define LED_CONTROL_DBG 1
+#define LED_CONTROL_DBG 0
 
 #if LED_CONTROL_DBG
 #include "stm32l4xx_hal.h"
@@ -50,18 +50,16 @@ static LED_Status_t LED_AnimationAlternatingColorsExecute(LED_Handle_t* this, ui
 static LED_Status_t LED_AnimationColorCycleExecute(LED_Handle_t* this, uint32_t tick);
 static void         update_exp_multiplier_factor();
 
-typedef uint32_t (*CalculateFadeBrightness_t)(uint32_t elapsed,
-                                              uint32_t duration,
-                                              uint32_t maxDutyCycle,
-                                              bool     isFadingIn);
+typedef uint32_t (*CalculateFadeBrightness_t)(uint32_t elapsed, uint32_t duration, uint32_t maxDutyCycle,
+                                              bool isFadingIn);
 
 #if USE_LED_ANIMATION_QUADRATIC
 static uint32_t GetFadeBrightnessQuadratic(uint32_t elapsed, uint32_t duration, uint32_t maxDutyCycle, bool isFadingIn);
 static const CalculateFadeBrightness_t CalculateFadeBrightness = GetFadeBrightnessQuadratic;
 
 #elif USE_LED_ANIMATION_EXPONENTIAL
-static uint32_t
-GetFadeBrightnessExponential(uint32_t elapsed, uint32_t duration, uint32_t maxDutyCycle, bool isFadingIn);
+static uint32_t GetFadeBrightnessExponential(uint32_t elapsed, uint32_t duration, uint32_t maxDutyCycle,
+                                             bool isFadingIn);
 static const CalculateFadeBrightness_t CalculateFadeBrightness = GetFadeBrightnessExponential;
 
 #elif USE_LED_ANIMATION_SINE
@@ -80,52 +78,6 @@ static void LED_Animation_CallCallbackIfExists(LED_Handle_t* this, LED_Status_t 
     {
         this->callback(this->animationType, Status);
     }
-}
-
-static LED_Status_t LED_Animation_SetCurrentColor(LED_Handle_t* this, uint8_t* colorValues, uint32_t colorCount)
-{
-    if (this == NULL || colorValues == NULL)
-    {
-        return LED_STATUS_ERROR_NULL_POINTER;
-    }
-
-    for (uint32_t i = 0; i < colorCount; i++)
-    {
-        this->currentColor[i] = colorValues[i];
-    }
-
-    return LED_STATUS_SUCCESS;
-}
-
-static LED_Status_t
-LED_Animation_SetCurrentColorFromDutyCycle(LED_Handle_t* this, uint16_t* DutyCycleValues, uint32_t DutyCycleCount)
-{
-    void* pwmConfig = this->controller->PwmConfig;
-
-    // Check for null pointers to ensure safety before accessing them
-    if (this == NULL || this->controller == NULL || pwmConfig == NULL || DutyCycleValues == NULL)
-    {
-        return LED_STATUS_ERROR_NULL_POINTER;
-    }
-
-    // Ensure that the DutyCycleCount does not exceed predefined limits (if applicable)
-    if (DutyCycleCount > MAX_COLOR_CHANNELS)
-    {
-        return LED_STATUS_ERROR_INVALID_ARGUMENT;
-    }
-
-    for (uint32_t i = 0; i < DutyCycleCount; i++)
-    {
-        // checks to ensure DutyCycleValues[i] is within the expected range if needed
-        if (DutyCycleValues[i] > this->controller->MaxDutyCycle)
-        {
-            return LED_STATUS_ERROR_INVALID_VALUE;
-        }
-
-        this->currentColor[i] = DUTY_CYCLE_TO_BRIGHTNESS(DutyCycleValues[i], this->controller->MaxDutyCycle);
-    }
-
-    return LED_STATUS_SUCCESS;
 }
 
 /**
@@ -195,8 +147,6 @@ static LED_Status_t SetColorGeneric(LED_Handle_t* this, uint8_t* colorValues, ui
         return LED_STATUS_ERROR_INVALID_ARGUMENT;
     }
 
-    LED_Animation_SetCurrentColor(this, colorValues, colorCount);
-
     for (uint32_t i = 0; i < colorCount; i++)
     {
         // Checks to ensure colorValues[i] is within the expected range if needed
@@ -205,7 +155,8 @@ static LED_Status_t SetColorGeneric(LED_Handle_t* this, uint8_t* colorValues, ui
             return LED_STATUS_ERROR_INVALID_VALUE;
         }
 
-        uint32_t dutyCycle = BRIGHTNESS_TO_DUTY_CYCLE(colorValues[i], this->controller->MaxDutyCycle);
+        uint32_t dutyCycle    = BRIGHTNESS_TO_DUTY_CYCLE(colorValues[i], this->controller->MaxDutyCycle);
+        this->currentColor[i] = colorValues[i]; // Save the color value for future reference
 
         // check if Function exists in the PWM_Channel_t structure
         if (((PWM_Channel_t*)pwmConfig)[i].setDutyCycle == NULL)
@@ -255,8 +206,6 @@ static LED_Status_t SetDutyCycleGeneric(LED_Handle_t* this, uint16_t* DutyCycleV
         return LED_STATUS_ERROR_INVALID_ARGUMENT;
     }
 
-    LED_Animation_SetCurrentColorFromDutyCycle(this, DutyCycleValues, DutyCycleCount);
-
     for (uint32_t i = 0; i < DutyCycleCount; i++)
     {
         // checks to ensure DutyCycleValues[i] is within the expected range if needed
@@ -273,6 +222,9 @@ static LED_Status_t SetDutyCycleGeneric(LED_Handle_t* this, uint16_t* DutyCycleV
         }
 
         ((PWM_Channel_t*)pwmConfig)[i].setDutyCycle(dutyCycle);
+
+        // Save the color value for future reference
+        this->currentColor[i] = DUTY_CYCLE_TO_BRIGHTNESS(DutyCycleValues[i], this->controller->MaxDutyCycle);
     }
 
     return LED_STATUS_SUCCESS;
@@ -439,8 +391,8 @@ LED_Status_t LED_AnimationValidateController(LED_Controller_t* Controller)
  * @return LED_Status_t The status of the initialization. Returns LED_STATUS_SUCCESS if successful, or an
  * error code if an error occurred.
  */
-LED_Status_t
-LED_Animation_Init(LED_Handle_t* this, LED_Controller_t* Controller, LED_Animation_Complete_Callback callback)
+LED_Status_t LED_Animation_Init(LED_Handle_t* this, LED_Controller_t* Controller,
+                                LED_Animation_Complete_Callback callback)
 {
     if (this == NULL)
     {
@@ -960,8 +912,8 @@ static uint32_t GetFadeBrightnessQuadratic(uint32_t elapsed, uint32_t duration, 
 //
 // Returns:
 //   The computed brightness level based on an exponential curve.
-static uint32_t
-GetFadeBrightnessExponential(uint32_t elapsed, uint32_t duration, uint32_t maxDutyCycle, bool isFadingIn)
+static uint32_t GetFadeBrightnessExponential(uint32_t elapsed, uint32_t duration, uint32_t maxDutyCycle,
+                                             bool isFadingIn)
 {
     // Normalize progress from 0.0 to 1.0
     float    progress = (float)elapsed / duration;
@@ -1501,6 +1453,96 @@ LED_Status_t LED_Animation_SetColorCycle(LED_Handle_t* this, LED_Animation_Color
     return LED_STATUS_SUCCESS;
 }
 
+#if USE_QUADRATIC_INTERPOLATION
+
+void PerformQuadraticInterpolation(LED_Handle_t* this, uint32_t elapsed, uint32_t duration, uint8_t* currentColor,
+                                   uint8_t* targetColor)
+{
+    // Get Color Count
+    uint8_t colorCount = CalculateColorCount(this->controller->LedType);
+
+    // Calculate the interpolated color
+    uint32_t timeInCycle = elapsed % duration;
+
+    // Calculate interpolation factor (t) based on elapsed time and scale it
+    uint32_t fraction_scaled = (timeInCycle * 1000) / duration;
+
+    // Ensure fraction_scaled is between 0 and 1000
+    if (fraction_scaled > 1000)
+    {
+        fraction_scaled = 1000;
+    }
+
+    // Convert the scaled fraction to a float between 0.0 and 1.0
+    float t = fraction_scaled / 1000.0f;
+
+    // Apply quadratic interpolation by squaring the interpolation factor
+    float t_squared = t * t;
+
+    uint8_t interpolatedColor[colorCount];
+
+    for (uint8_t i = 0; i < colorCount; i++)
+    {
+        interpolatedColor[i] = currentColor[i] + (int32_t)((targetColor[i] - currentColor[i]) * t_squared);
+    }
+
+// Print interpolated color
+#if 1
+    LED_CONTROL_DBG_MSG("Interpolated Color (Quadratic): ");
+    for (uint8_t i = 0; i < colorCount; i++)
+    {
+        LED_CONTROL_DBG_MSG("%d ", interpolatedColor[i]);
+    }
+    LED_CONTROL_DBG_MSG("\r\n");
+#endif
+
+    // Update the LED handle with the interpolated color
+    LED_Animation_ExecuteColorSetting(this, interpolatedColor);
+}
+#endif
+
+#if USE_LINEAR_INTERPOLATION
+void PerformLinearInterpolation(LED_Handle_t* this, uint32_t elapsed, uint32_t duration, uint8_t* currentColor,
+                                uint8_t* targetColor)
+{
+    // Get Color Count
+    uint8_t colorCount = CalculateColorCount(this->controller->LedType);
+
+    // Calculate the interpolated color
+    uint32_t timeInCycle = elapsed % duration;
+
+    // Calculate interpolation factor (t) based on elapsed time and scale it
+    uint32_t fraction_scaled = (timeInCycle * 1000) / duration;
+
+    // Ensure fraction_scaled is between 0 and 1000
+    if (fraction_scaled > 1000)
+    {
+        fraction_scaled = 1000;
+    }
+
+    uint8_t interpolatedColor[colorCount];
+
+    for (uint8_t i = 0; i < colorCount; i++)
+    {
+        interpolatedColor[i] =
+            currentColor[i] + ((int32_t)(fraction_scaled * (int32_t)(targetColor[i] - currentColor[i])) / 1000);
+    }
+
+#if 0
+    // Print interpolated color
+    LED_TRANSITION_DBG_MSG("Interpolated Color (Linear): ");
+    for (uint8_t i = 0; i < colorCount; i++)
+    {
+        LED_TRANSITION_DBG_MSG("%d ", interpolatedColor[i]);
+    }
+    LED_TRANSITION_DBG_MSG("\r\n");
+#endif
+
+    // Update the LED handle with the interpolated color
+    LED_Animation_ExecuteColorSetting(this, interpolatedColor);
+}
+#endif
+
 static LED_Status_t LED_AnimationColorCycleExecute(LED_Handle_t* this, uint32_t tick)
 {
     // Validate input pointers
@@ -1536,9 +1578,8 @@ static LED_Status_t LED_AnimationColorCycleExecute(LED_Handle_t* this, uint32_t 
     uint32_t timeInCycle    = elapsedTime % cycleTimeMs;
     uint32_t colorIndex     = (elapsedTime / cycleTimeMs) % ColorCycle->colorCount;
     uint32_t nextColorIndex = (colorIndex + 1) % ColorCycle->colorCount;
-
-    uint8_t* currentColor = ((uint8_t**)ColorCycle->colors)[colorIndex];
-    uint8_t* nextColor    = ((uint8_t**)ColorCycle->colors)[nextColorIndex];
+    uint8_t* currentColor   = ((uint8_t**)ColorCycle->colors)[colorIndex];
+    uint8_t* nextColor      = ((uint8_t**)ColorCycle->colors)[nextColorIndex];
 
     // Hold phase
     if (timeInCycle < ColorCycle->holdTimeMs)
@@ -1552,17 +1593,14 @@ static LED_Status_t LED_AnimationColorCycleExecute(LED_Handle_t* this, uint32_t 
     // Transition phase
     else
     {
-        float   fraction   = (timeInCycle - ColorCycle->holdTimeMs) / (float)ColorCycle->transitionMs;
-        uint8_t colorCount = CalculateColorCount(this->controller->LedType);
-        uint8_t interpolatedColor[colorCount];
+        uint32_t transitionElapsed = timeInCycle - ColorCycle->holdTimeMs;
+#if USE_QUADRATIC_INTERPOLATION
+        PerformQuadraticInterpolation(this, transitionElapsed, ColorCycle->transitionMs, currentColor, nextColor);
+#endif
 
-        for (uint32_t i = 0; i < colorCount; i++)
-        {
-            uint8_t color        = currentColor[i] + fraction * (nextColor[i] - currentColor[i]);
-            interpolatedColor[i] = color;
-        }
-
-        LED_Animation_ExecuteColorSetting(this, interpolatedColor);
+#if USE_LINEAR_INTERPOLATION
+        PerformLinearInterpolation(this, transitionElapsed, ColorCycle->transitionMs, currentColor, nextColor);
+#endif
     }
 
     // Handle animation completion and repetition

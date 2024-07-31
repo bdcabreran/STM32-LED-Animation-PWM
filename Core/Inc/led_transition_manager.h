@@ -12,10 +12,6 @@
 
 #include "led_animation.h"
 
-// only one of the following should be defined
-#define USE_LINEAR_INTERPOLATION 0
-#define USE_QUADRATIC_INTERPOLATION 1
-
 #define DEFAULT_TRANSITION_CLEAN_ENTRY_TIMEOUT_MS 2000
 #define DEFAULT_TRANSITION_UPON_COMPLETION_TIMEOUT_MS 5000
 #define DEFAULT_TRANSITION_INTERPOLATE_TIME_MS 200
@@ -81,7 +77,7 @@ typedef struct
 LED_Status_t LED_Transition_Init(LED_Transition_Handle_t* this, LED_Handle_t* LedHandle);
 LED_Status_t LED_Transition_SetMapping(LED_Transition_Handle_t* this, const void* transitionsMap, uint32_t mapSize);
 LED_Status_t LED_Transition_Update(LED_Transition_Handle_t* this, uint32_t tick);
-LED_Status_t
-LED_Transition_ExecAnimation(LED_Transition_Handle_t* this, const void* animConfig, LED_Animation_Type_t animType);
+LED_Status_t LED_Transition_ExecAnimation(LED_Transition_Handle_t* this, const void* animConfig,
+                                          LED_Animation_Type_t animType);
 
 #endif /* INC_LED_TRANSITION_MANAGER_H */

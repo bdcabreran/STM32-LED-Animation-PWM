@@ -2,8 +2,8 @@ BasedOnStyle: LLVM
 IndentWidth: 4
 UseTab: Never
 BreakBeforeBraces: Allman
-AllowShortIfStatementsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: true # Allows short if statements on a single line for conciseness
+AllowShortFunctionsOnASingleLine: Inline # Allows short functions on a single line for conciseness
 ColumnLimit: 120
 SpaceBeforeParens: ControlStatements
 SpacesInParentheses: false
@@ -12,5 +12,5 @@ PointerAlignment: Left
 AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: true
 AlignTrailingComments: true
-BinPackParameters: false
-BinPackArguments: false
+BinPackParameters: true # Allows packing parameters into fewer lines for better readability
+BinPackArguments: true # Allows packing arguments into fewer lines for better readability

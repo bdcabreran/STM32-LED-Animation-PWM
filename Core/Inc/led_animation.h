@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 // Only one of the following should be set to 1
-// 81 ~ 181 cycles // led_pwm.c library
 // 90 ~ 95 cycles // Quadratic
 // 7300 ~ 8000 cycles // Exponential
 // 9000 ~ 11000 cycles // Sine
@@ -14,6 +13,10 @@
 #define USE_LED_ANIMATION_EXPONENTIAL (0)
 #define USE_LED_ANIMATION_SINE (0)
 #define USE_LED_ANIMATION_SINE_APPROX (0)
+
+// only one of the following should be defined
+#define USE_LINEAR_INTERPOLATION (0)
+#define USE_QUADRATIC_INTERPOLATION (1)
 
 #define LED_MAX_BRIGHTNESS (255) // Standardized 8-bit brightness level
 
@@ -298,8 +301,8 @@ typedef struct
  *  @param callback Callback function for animation completion.
  *  @return LED status.
  */
-LED_Status_t
-LED_Animation_Init(LED_Handle_t* this, LED_Controller_t* Controller, LED_Animation_Complete_Callback callback);
+LED_Status_t LED_Animation_Init(LED_Handle_t* this, LED_Controller_t* Controller,
+                                LED_Animation_Complete_Callback callback);
 
 /** @brief Set the LED animation.
  *
@@ -433,11 +436,46 @@ LED_Status_t LED_Animation_GetCurrentColor(LED_Handle_t* this, uint8_t* color, u
  */
 uint32_t CalculateColorCount(LED_Type_t ledType);
 
+/** @brief Execute the color setting.
+ *
+ *  @param this Pointer to the LED handle.
+ *  @param colorValues Pointer to the color values.
+ *
+ *  @return LED status.
+ */
 LED_Status_t LED_Animation_ExecuteColorSetting(LED_Handle_t* this, uint8_t* colorValues);
 
-LED_Status_t
-LED_Animation_GetTargetColor(void* animData, LED_Animation_Type_t Type, uint8_t* color, uint8_t colorCount);
+/** @brief Get the target color of the LED.
+ *
+ *  @param animData Pointer to the animation data.
+ *  @param Type Type of the LED animation.
+ *  @param color Pointer to the color structure to store the LED color.
+ * @param colorCount Number of colors in the color structure.
+ *
+ *  @return LED status.
+ */
+LED_Status_t LED_Animation_GetTargetColor(void* animData, LED_Animation_Type_t Type, uint8_t* color,
+                                          uint8_t colorCount);
 
+/** @brief Get the target color of the LED.
+ *
+ *  @param animData Pointer to the animation data.
+ *  @param Type Type of the LED animation.
+ *  @param color Pointer to the color structure to store the LED color.
+ * @param colorCount Number of colors in the color structure.
+ *
+ *  @return LED status.
+ */
 bool LED_Animation_ShouldStartHigh(LED_Animation_Type_t animationType, void* animConfig);
+
+#if USE_LED_ANIMATION_QUADRATIC
+void PerformQuadraticInterpolation(LED_Handle_t* this, uint32_t elapsed, uint32_t duration, uint8_t* currentColor,
+                                   uint8_t* targetColor);
+#endif
+
+#if USE_LED_ANIMATION_EXPONENTIAL
+void PerformLinearInterpolation(LED_Handle_t* this, uint32_t elapsed, uint32_t duration, uint8_t* currentColor,
+                                uint8_t* targetColor);
+#endif
 
 #endif // __LED_ANIMATION_H__
