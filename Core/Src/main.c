@@ -192,7 +192,7 @@ const LED_Animation_ColorCycle_t globalColorCycleConfig = {.colors = (void*)Alte
                                                            .transitionMs   = 300,
                                                            .holdTimeMs     = 700,
                                                            .repeatTimes    = 2,
-                                                           .leaveLastColor = false};
+                                                           .leaveLastColor = true};
 
 // Global LED Handle for RGB LED
 LED_Handle_t            MyLed;
@@ -329,17 +329,17 @@ int main(void)
     LED_Transition_Init(&TransitionsHandle, &MyLed);
 
     // Set the blink animation for the single LED
-    LED_Animation_SetSolid(&MyLed, &globalSolidConfig);
+    //    LED_Animation_SetSolid(&MyLed, &globalSolidConfig);
     // LED_Animation_SetFlash(&MyLed, &globalFlashConfig);
     // LED_Animation_SetBlink(&MyLed, &globalBlinkConfig);
     // LED_Animation_SetFadeIn(&MyLed, &globalFadeInConfig);
     // LED_Animation_SetFadeOut(&MyLed, &globalFadeOutConfig);
-    //     LED_Animation_SetBreath(&MyLed, &globalBreathConfig);
+    // LED_Animation_SetBreath(&MyLed, &globalBreathConfig);
     // LED_Animation_SetPulse(&MyLed, &globalPulseConfig);
     // LED_Animation_SetAlternatingColors(&MyLed, &globalAlternatingColorsConfig);
     // LED_Animation_SetColorCycle(&MyLed, &globalColorCycleConfig);
 
-    LED_Transition_SetMapping(&TransitionsHandle, transitionMapping, MAX_TRANSITIONS);
+    // LED_Transition_SetMapping(&TransitionsHandle, transitionMapping, MAX_TRANSITIONS);
 
     // LED_Animation_Start(&MyLed);
 
@@ -354,14 +354,24 @@ int main(void)
 
     // LED_Transition_ExecAnimation(&TransitionsHandle, &globalSolidConfig, LED_ANIMATION_TYPE_SOLID);
 
+    // LED_Transition_ToPulse(&TransitionsHandle, &globalPulseConfig, LED_TRANSITION_INTERPOLATE, 200);
+    // LED_Transition_ToPulse(&TransitionsHandle, &globalPulseConfig, LED_TRANSITION_IMMINENT, 0);
+    // LED_Transition_ToBlink(&TransitionsHandle, &globalBlinkConfig, LED_TRANSITION_IMMINENT, 0);
+
     while (1)
     {
+        // LED_Transition_ToPulse(&TransitionsHandle, &globalPulseConfig, LED_TRANSITION_IMMINENT, 0);
+        // LED_Transition_ToSolid(&TransitionsHandle, &globalSolidConfig, LED_TRANSITION_IMMINENT, 0);
+        // LED_Transition_ToBlink(&TransitionsHandle, &globalBlinkConfig, LED_TRANSITION_IMMINENT, 0);
+        // LED_Transition_ToColorCycle(&TransitionsHandle, &globalColorCycleConfig, LED_TRANSITION_INTERPOLATE, 300);
+
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
         // LED_Animation_Update(&MyLed, HAL_GetTick());
-#if 1
         LED_Transition_Update(&TransitionsHandle, HAL_GetTick());
+
+#if 1
 
         if (HAL_GetTick() - lastTick > 5000)
         {
@@ -371,41 +381,51 @@ int main(void)
             {
             case 0:
                 // Start the LED Animation
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalSolidConfig, LED_ANIMATION_TYPE_SOLID);
+                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalSolidConfig, LED_ANIMATION_TYPE_SOLID);
                 break;
             case 1:
                 // Transition from solid to breath
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalBlinkConfig, LED_ANIMATION_TYPE_BLINK);
+                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalBlinkConfig, LED_ANIMATION_TYPE_BLINK);
                 break;
             case 2:
                 // Transition from breath to breath2
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalBreath2Config, LED_ANIMATION_TYPE_BREATH);
+                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalBreath2Config, LED_ANIMATION_TYPE_BREATH);
                 break;
             case 3:
                 // Transition from breath2 to blink
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalBreathConfig, LED_ANIMATION_TYPE_BREATH);
+                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalBreathConfig, LED_ANIMATION_TYPE_BREATH);
                 break;
             case 4:
                 // Transition from blink to solid
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalPulseConfig, LED_ANIMATION_TYPE_PULSE);
+                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalPulseConfig, LED_ANIMATION_TYPE_PULSE);
                 break;
             case 5:
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalFlashConfig, LED_ANIMATION_TYPE_FLASH);
+                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalFlashConfig, LED_ANIMATION_TYPE_FLASH);
                 break;
             case 6:
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalAlternatingColorsConfig,
-                                             LED_ANIMATION_TYPE_ALTERNATING_COLORS);
+                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalAlternatingColorsConfig,
+                                              LED_ANIMATION_TYPE_ALTERNATING_COLORS);
                 break;
             case 7:
-                LED_Transition_ExecAnimation(&TransitionsHandle, &globalColorCycleConfig,
-                                             LED_ANIMATION_TYPE_COLOR_CYCLE);
+                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalColorCycleConfig,
+                                              LED_ANIMATION_TYPE_COLOR_CYCLE);
+                break;
+            case 8:
+                LED_Transition_ToOff(&TransitionsHandle, LED_TRANSITION_IMMINENT, 0);
+                break;
+
+            case 9:
+                LED_Transition_ToPulse(&TransitionsHandle, &globalPulseConfig, LED_TRANSITION_INTERPOLATE, 200);
+                break;
+            case 10:
+                LED_Transition_ToPulse(&TransitionsHandle, &globalPulseConfig, LED_TRANSITION_IMMINENT, 0);
                 break;
 
             default:
                 break;
             }
 
-            counter = (counter + 1) % 8;
+            counter = (counter + 1) % 11;
         }
 #endif
     }

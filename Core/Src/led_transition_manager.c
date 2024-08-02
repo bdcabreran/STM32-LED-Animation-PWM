@@ -1,5 +1,4 @@
 #include "led_transition_manager.h"
-#include <stddef.h> // For NULL
 
 #define DEBUG_BUFFER_SIZE 100
 #define LED_TRANSITION_DBG 0
@@ -35,6 +34,7 @@ LED_Status_t LED_Transition_Init(LED_Transition_Handle_t* this, LED_Handle_t* Le
     this->state          = LED_TRANSITION_STATE_IDLE;
     this->targetAnimData = NULL;
     this->targetAnimType = LED_ANIMATION_TYPE_INVALID;
+    this->transitionType = LED_TRANSITION_INVALID;
 
     LED_TRANSITION_DBG_MSG("LED Transition Manager Initialized\r\n");
     return LED_STATUS_SUCCESS;
@@ -101,7 +101,7 @@ static uint16_t LED_Transition_SetupDuration(LED_Transition_Type_t transitionTyp
     }
 }
 
-static bool LED_Transition_FindTransition(LED_Transition_Handle_t* this)
+static bool LED_Transition_FindMapTransition(LED_Transition_Handle_t* this)
 {
     for (uint32_t i = 0; i < this->mapSize; i++)
     {
@@ -111,9 +111,22 @@ static bool LED_Transition_FindTransition(LED_Transition_Handle_t* this)
             this->transitionType = transition->TransitionType;
             this->Duration       = LED_Transition_SetupDuration(transition->TransitionType, transition->Duration);
 
-            LED_TRANSITION_DBG_MSG("Transition found in the map, %d, duration %d\r\n", this->transitionType,
-                                   this->Duration);
+            LED_TRANSITION_DBG_MSG("MAP Transition found, %d, duration %d\r\n", this->transitionType, this->Duration);
 
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool LED_Transition_FindRegularTransition(LED_Transition_Handle_t* this)
+{
+    if (IS_VALID_LED_ANIMATION_TYPE(this->targetAnimType))
+    {
+        if (IS_VALID_TRANSITION_TYPE(this->transitionType))
+        {
+            LED_TRANSITION_DBG_MSG("Regular Transition found, %d, duration %d\r\n", this->transitionType,
+                                   this->Duration);
             return true;
         }
     }
@@ -166,11 +179,19 @@ static void LED_Transition_CallCallbackIfExists(LED_Transition_Handle_t* this, L
 
 static LED_Status_t LED_Transition_StateSetup(LED_Transition_Handle_t* this, uint32_t tick)
 {
-    bool transitionFound = LED_Transition_FindTransition(this);
 
-    if (!transitionFound)
+    bool regularTransitionFound = LED_Transition_FindRegularTransition(this);
+
+    // If no regular transition is found, check the map
+    if (!regularTransitionFound)
     {
-        LED_Transition_SetDefaultType(this);
+        bool mapTransitionFound = LED_Transition_FindMapTransition(this);
+
+        // If no map transition is found, set default transition type
+        if (!mapTransitionFound)
+        {
+            LED_Transition_SetDefaultType(this);
+        }
     }
 
     if (this->transitionType == LED_TRANSITION_INTERPOLATE)
@@ -328,23 +349,100 @@ LED_Status_t LED_Transition_Update(LED_Transition_Handle_t* this, uint32_t tick)
     return LED_STATUS_SUCCESS;
 }
 
-LED_Status_t LED_Transition_ExecAnimation(LED_Transition_Handle_t* this, const void* animData,
-                                          LED_Animation_Type_t animType)
+LED_Status_t LED_Transition_ExecuteWithMap(LED_Transition_Handle_t* this, const void* animData,
+                                           LED_Animation_Type_t animType)
 {
-    if (this == NULL || animData == NULL)
+    LED_Transition_Execute(this, animData, animType, LED_TRANSITION_INVALID, 0);
+}
+
+LED_Status_t LED_Transition_Execute(LED_Transition_Handle_t* handle, const void* animData,
+                                    LED_Animation_Type_t animType, LED_Transition_Type_t transitionType,
+                                    uint16_t duration)
+{
+    if (handle == NULL)
     {
         return LED_STATUS_ERROR_NULL_POINTER;
     }
 
-    if (this->state == LED_TRANSITION_STATE_IDLE)
+    // if target animation is the same as the current animation, do not transition
+    if (handle->LedHandle->animationData == animData && handle->LedHandle->animationType == animType &&
+        handle->LedHandle->isRunning)
     {
-        this->targetAnimData = animData;
-        this->targetAnimType = animType;
-        LED_Transition_SetNextState(this, LED_TRANSITION_STATE_SETUP);
+        // LED_TRANSITION_DBG_MSG("Target Animation is the same as the current animation, no transition needed\r\n");
+        return LED_STATUS_SUCCESS;
+    }
+
+    if (handle->state == LED_TRANSITION_STATE_IDLE)
+    {
+        handle->targetAnimData = animData;
+        handle->targetAnimType = animType;
+        handle->transitionType = transitionType;
+        handle->Duration       = duration;
+        LED_Transition_SetNextState(handle, LED_TRANSITION_STATE_SETUP);
         return LED_STATUS_SUCCESS;
     }
     else
     {
         return LED_STATUS_ERROR_BUSY;
     }
+}
+
+LED_Status_t LED_Transition_ToOff(LED_Transition_Handle_t* handle, LED_Transition_Type_t transitionType,
+                                  uint16_t duration)
+{
+    LED_Transition_Execute(handle, NULL, LED_ANIMATION_TYPE_OFF, transitionType, duration);
+}
+
+LED_Status_t LED_Transition_ToBlink(LED_Transition_Handle_t* handle, const void* animData,
+                                    LED_Transition_Type_t transitionType, uint16_t duration)
+{
+    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_BLINK, transitionType, duration);
+}
+
+LED_Status_t LED_Transition_ToBreath(LED_Transition_Handle_t* handle, const void* animData,
+                                     LED_Transition_Type_t transitionType, uint16_t duration)
+{
+    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_BREATH, transitionType, duration);
+}
+
+LED_Status_t LED_Transition_ToSolid(LED_Transition_Handle_t* handle, const void* animData,
+                                    LED_Transition_Type_t transitionType, uint16_t duration)
+{
+    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_SOLID, transitionType, duration);
+}
+
+LED_Status_t LED_Transition_ToPulse(LED_Transition_Handle_t* handle, const void* animData,
+                                    LED_Transition_Type_t transitionType, uint16_t duration)
+{
+    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_PULSE, transitionType, duration);
+}
+
+LED_Status_t LED_Transition_ToFadeIn(LED_Transition_Handle_t* handle, const void* animData,
+                                     LED_Transition_Type_t transitionType, uint16_t duration)
+{
+    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_FADE_IN, transitionType, duration);
+}
+
+LED_Status_t LED_Transition_ToFadeOut(LED_Transition_Handle_t* handle, const void* animData,
+                                      LED_Transition_Type_t transitionType, uint16_t duration)
+{
+    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_FADE_OUT, transitionType, duration);
+}
+
+LED_Status_t LED_Transition_ToFlash(LED_Transition_Handle_t* handle, const void* animData,
+                                    LED_Transition_Type_t transitionType, uint16_t duration)
+{
+    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_FLASH, transitionType, duration);
+}
+
+LED_Status_t LED_Transition_ToAlternatingColors(LED_Transition_Handle_t* handle, const void* animData,
+                                                LED_Transition_Type_t transitionType, uint16_t duration)
+{
+    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_ALTERNATING_COLORS, transitionType, duration);
+}
+
+LED_Status_t LED_Transition_ToColorCycle(LED_Transition_Handle_t* handle, const void* animData,
+                                         LED_Transition_Type_t transitionType, uint16_t duration)
+{
+    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_COLOR_CYCLE, transitionType, duration);
 }

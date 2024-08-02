@@ -318,6 +318,9 @@ static LED_Status_t LED_Animation_ExecuteDutyCycleSetting(LED_Handle_t* this, ui
 
     LED_Status_t result = LED_STATUS_SUCCESS;
 
+    // Start PWM controller
+    this->controller->Start();
+
     // Calculate the number of color channels based on LED type
     uint32_t colorCount = LED_Animation_GetColorCount(this->controller->LedType);
 
@@ -1646,6 +1649,13 @@ LED_Status_t LED_Animation_GetTargetColor(void* animData, LED_Animation_Type_t T
     // Determine the type of animation and extract the colors accordingly
     switch (Type)
     {
+
+    case LED_ANIMATION_TYPE_OFF:
+    {
+        memset(color, 0, colorCount);
+        break;
+    }
+
     case LED_ANIMATION_TYPE_SOLID:
     case LED_ANIMATION_TYPE_BLINK:
     case LED_ANIMATION_TYPE_FLASH:
@@ -1715,6 +1725,7 @@ bool LED_Animation_ShouldStartHigh(LED_Animation_Type_t animationType, void* ani
 
     case LED_ANIMATION_TYPE_FADE_IN:
     case LED_ANIMATION_TYPE_PULSE:
+    case LED_ANIMATION_TYPE_OFF:
         return false;
 
     default:
