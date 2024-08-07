@@ -106,7 +106,7 @@ static bool LED_Transition_FindMapTransition(LED_Transition_Handle_t* this)
     for (uint32_t i = 0; i < this->mapSize; i++)
     {
         LED_Transition_Config_t* transition = (LED_Transition_Config_t*)this->transitionMap + i;
-        if (transition->StartAnim == this->LedHandle->animationData && transition->EndAnim == this->targetAnimData)
+        if (transition->StartAnim == this->LedHandle->animationData && transition->TargetAnim == this->targetAnimData)
         {
             this->transitionType = transition->TransitionType;
             this->Duration       = LED_Transition_SetupDuration(transition->TransitionType, transition->Duration);
@@ -146,9 +146,9 @@ static void LED_Transition_HandleInterpolate(LED_Transition_Handle_t* this)
     LED_TRANSITION_DBG_MSG("LED Color Count: %d\r\n", colorCount);
 
     LED_Animation_GetCurrentColor(this->LedHandle, this->currentColor, colorCount);
-    LED_Animation_GetTargetColor(this->targetAnimData, this->targetAnimType, this->targetColor, colorCount);
+    LED_Animation_GetTargetColor((void*)this->targetAnimData, this->targetAnimType, this->targetColor, colorCount);
 
-    bool startHigh = LED_Animation_ShouldStartHigh(this->targetAnimType, this->targetAnimData);
+    bool startHigh = LED_Animation_ShouldStartHigh(this->targetAnimType, (void*)this->targetAnimData);
 
     if (!startHigh)
     {
@@ -224,7 +224,7 @@ static LED_Status_t LED_Transition_StateCompleted(LED_Transition_Handle_t* this)
 {
     LED_Transition_CallCallbackIfExists(this, LED_STATUS_ANIMATION_TRANSITION_COMPLETED);
 
-    LED_Animation_SetAnimation(this->LedHandle, this->targetAnimData, this->targetAnimType);
+    LED_Animation_SetAnimation(this->LedHandle, (void*)this->targetAnimData, this->targetAnimType);
     LED_Animation_Start(this->LedHandle);
 
     this->targetAnimData = NULL;
@@ -291,7 +291,7 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
 
     case LED_TRANSITION_AT_CLEAN_ENTRY:
     {
-        uint8_t colorCount = LED_Animation_GetColorCount(this->LedHandle->animationType);
+        uint8_t colorCount = LED_Animation_GetColorCount(this->LedHandle->controller->LedType);
         uint8_t color[colorCount];
         LED_Animation_GetCurrentColor(this->LedHandle, color, colorCount);
 
@@ -352,7 +352,7 @@ LED_Status_t LED_Transition_Update(LED_Transition_Handle_t* this, uint32_t tick)
 LED_Status_t LED_Transition_ExecuteWithMap(LED_Transition_Handle_t* this, const void* animData,
                                            LED_Animation_Type_t animType)
 {
-    LED_Transition_Execute(this, animData, animType, LED_TRANSITION_INVALID, 0);
+    return LED_Transition_Execute(this, animData, animType, LED_TRANSITION_INVALID, 0);
 }
 
 LED_Status_t LED_Transition_Execute(LED_Transition_Handle_t* handle, const void* animData,
@@ -387,62 +387,88 @@ LED_Status_t LED_Transition_Execute(LED_Transition_Handle_t* handle, const void*
     }
 }
 
+bool LED_Transition_IsBusy(LED_Transition_Handle_t* handle)
+{
+    return handle->state != LED_TRANSITION_STATE_IDLE;
+}
+
+bool LED_Transition_Stop(LED_Transition_Handle_t* handle)
+{
+    if (handle->state == LED_TRANSITION_STATE_IDLE)
+    {
+        return true;
+    }
+
+    LED_Animation_Stop(handle->LedHandle, true);
+    LED_Transition_SetNextState(handle, LED_TRANSITION_STATE_IDLE);
+    return true;
+}
+
+bool LED_Transition_IsLEDOff(LED_Transition_Handle_t* handle)
+{
+    uint8_t colorCount = LED_Animation_GetColorCount(handle->LedHandle->controller->LedType);
+    uint8_t color[colorCount];
+    LED_Animation_GetCurrentColor(handle->LedHandle, color, colorCount);
+
+    return AreColorsOff(color, colorCount);
+}
+
 LED_Status_t LED_Transition_ToOff(LED_Transition_Handle_t* handle, LED_Transition_Type_t transitionType,
                                   uint16_t duration)
 {
-    LED_Transition_Execute(handle, NULL, LED_ANIMATION_TYPE_OFF, transitionType, duration);
+    return LED_Transition_Execute(handle, NULL, LED_ANIMATION_TYPE_OFF, transitionType, duration);
 }
 
 LED_Status_t LED_Transition_ToBlink(LED_Transition_Handle_t* handle, const void* animData,
                                     LED_Transition_Type_t transitionType, uint16_t duration)
 {
-    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_BLINK, transitionType, duration);
+    return LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_BLINK, transitionType, duration);
 }
 
 LED_Status_t LED_Transition_ToBreath(LED_Transition_Handle_t* handle, const void* animData,
                                      LED_Transition_Type_t transitionType, uint16_t duration)
 {
-    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_BREATH, transitionType, duration);
+    return LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_BREATH, transitionType, duration);
 }
 
 LED_Status_t LED_Transition_ToSolid(LED_Transition_Handle_t* handle, const void* animData,
                                     LED_Transition_Type_t transitionType, uint16_t duration)
 {
-    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_SOLID, transitionType, duration);
+    return LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_SOLID, transitionType, duration);
 }
 
 LED_Status_t LED_Transition_ToPulse(LED_Transition_Handle_t* handle, const void* animData,
                                     LED_Transition_Type_t transitionType, uint16_t duration)
 {
-    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_PULSE, transitionType, duration);
+    return LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_PULSE, transitionType, duration);
 }
 
 LED_Status_t LED_Transition_ToFadeIn(LED_Transition_Handle_t* handle, const void* animData,
                                      LED_Transition_Type_t transitionType, uint16_t duration)
 {
-    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_FADE_IN, transitionType, duration);
+    return LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_FADE_IN, transitionType, duration);
 }
 
 LED_Status_t LED_Transition_ToFadeOut(LED_Transition_Handle_t* handle, const void* animData,
                                       LED_Transition_Type_t transitionType, uint16_t duration)
 {
-    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_FADE_OUT, transitionType, duration);
+    return LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_FADE_OUT, transitionType, duration);
 }
 
 LED_Status_t LED_Transition_ToFlash(LED_Transition_Handle_t* handle, const void* animData,
                                     LED_Transition_Type_t transitionType, uint16_t duration)
 {
-    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_FLASH, transitionType, duration);
+    return LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_FLASH, transitionType, duration);
 }
 
 LED_Status_t LED_Transition_ToAlternatingColors(LED_Transition_Handle_t* handle, const void* animData,
                                                 LED_Transition_Type_t transitionType, uint16_t duration)
 {
-    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_ALTERNATING_COLORS, transitionType, duration);
+    return LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_ALTERNATING_COLORS, transitionType, duration);
 }
 
 LED_Status_t LED_Transition_ToColorCycle(LED_Transition_Handle_t* handle, const void* animData,
                                          LED_Transition_Type_t transitionType, uint16_t duration)
 {
-    LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_COLOR_CYCLE, transitionType, duration);
+    return LED_Transition_Execute(handle, animData, LED_ANIMATION_TYPE_COLOR_CYCLE, transitionType, duration);
 }

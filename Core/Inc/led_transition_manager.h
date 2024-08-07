@@ -44,7 +44,7 @@ typedef enum
 typedef struct
 {
     const void*           StartAnim;      /**< Pointer to the starting animation configuration */
-    const void*           EndAnim;        /**< Pointer to the target animation configuration */
+    const void*           TargetAnim;     /**< Pointer to the target animation configuration */
     LED_Transition_Type_t TransitionType; /**< Type of transition */
     uint16_t              Duration;       /**< Duration of the transition, meaning varies with TransitionType */
 } LED_Transition_Config_t;
@@ -235,5 +235,26 @@ LED_Status_t LED_Transition_ToAlternatingColors(LED_Transition_Handle_t* handle,
  */
 LED_Status_t LED_Transition_ToColorCycle(LED_Transition_Handle_t* handle, const void* animData,
                                          LED_Transition_Type_t transitionType, uint16_t duration);
+
+/**
+ * @brief Checks if the LED transition is busy.
+ * @param handle Pointer to the LED transition handle.
+ * @return True if the LED transition is busy, false otherwise.
+ */
+bool LED_Transition_IsBusy(LED_Transition_Handle_t* handle);
+
+/**
+ * @brief Checks if the LED is off.
+ * @param handle Pointer to the LED Transition handle.
+ * @return True if the LED is off, false otherwise.
+ */
+bool LED_Transition_IsLEDOff(LED_Transition_Handle_t* handle);
+
+/**
+ * @brief Stops the LED transition.
+ * @param handle Pointer to the LED transition handle.
+ * @return True if the LED transition is stopped, false otherwise.
+ */
+bool LED_Transition_Stop(LED_Transition_Handle_t* handle);
 
 #endif /* INC_LED_TRANSITION_MANAGER_H */
