@@ -444,7 +444,7 @@ int main(void)
     LED_Animation_Init(&MyLed, &LEDController, LED_Complete_Callback);
 
     // Intialize the LED Transition Handle
-    LED_Transition_Init(&TransitionsHandle, &MyLed);
+    LED_Transition_init(&TransitionsHandle, &MyLed);
 
     // Set the blink animation for the single LED
     //    LED_Animation_SetSolid(&MyLed, &globalSolidConfig);
@@ -487,7 +487,7 @@ int main(void)
 
         /* USER CODE BEGIN 3 */
         // LED_Animation_Update(&MyLed, HAL_GetTick());
-        LED_Transition_Update(&TransitionsHandle, HAL_GetTick());
+        LED_Transition_update(&TransitionsHandle, HAL_GetTick());
 
 #if 1
 
@@ -499,37 +499,37 @@ int main(void)
             {
             case 0:
                 // Start the LED Animation
-                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalSolidConfig, LED_ANIMATION_TYPE_SOLID);
+                LED_Transition_executeWithMap(&TransitionsHandle, &globalSolidConfig, LED_ANIMATION_TYPE_SOLID);
                 break;
             case 1:
                 // Transition from solid to breath
-                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalBlinkConfig, LED_ANIMATION_TYPE_BLINK);
+                LED_Transition_executeWithMap(&TransitionsHandle, &globalBlinkConfig, LED_ANIMATION_TYPE_BLINK);
                 break;
             case 2:
                 // Transition from breath to breath2
-                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalBreath2Config, LED_ANIMATION_TYPE_BREATH);
+                LED_Transition_executeWithMap(&TransitionsHandle, &globalBreath2Config, LED_ANIMATION_TYPE_BREATH);
                 break;
             case 3:
                 // Transition from breath2 to blink
-                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalBreathConfig, LED_ANIMATION_TYPE_BREATH);
+                LED_Transition_executeWithMap(&TransitionsHandle, &globalBreathConfig, LED_ANIMATION_TYPE_BREATH);
                 break;
             case 4:
                 // Transition from blink to solid
-                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalPulseConfig, LED_ANIMATION_TYPE_PULSE);
+                LED_Transition_executeWithMap(&TransitionsHandle, &globalPulseConfig, LED_ANIMATION_TYPE_PULSE);
                 break;
             case 5:
-                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalFlashConfig, LED_ANIMATION_TYPE_FLASH);
+                LED_Transition_executeWithMap(&TransitionsHandle, &globalFlashConfig, LED_ANIMATION_TYPE_FLASH);
                 break;
             case 6:
-                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalAlternatingColorsConfig,
+                LED_Transition_executeWithMap(&TransitionsHandle, &globalAlternatingColorsConfig,
                                               LED_ANIMATION_TYPE_ALTERNATING_COLORS);
                 break;
             case 7:
-                LED_Transition_ExecuteWithMap(&TransitionsHandle, &globalColorCycleConfig,
+                LED_Transition_executeWithMap(&TransitionsHandle, &globalColorCycleConfig,
                                               LED_ANIMATION_TYPE_COLOR_CYCLE);
                 break;
             case 8:
-                LED_Transition_ToOff(&TransitionsHandle, LED_TRANSITION_INTERPOLATE, 200);
+                LED_Transition_toOff(&TransitionsHandle, LED_TRANSITION_INTERPOLATE, 200);
                 break;
             case 9:
                 UART_printf("Check if LED is off\r\n");
@@ -537,20 +537,20 @@ int main(void)
                 {
                     UART_printf("LED is off\r\n");
                 }
-                LED_Transition_ToOff(&TransitionsHandle, LED_TRANSITION_INTERPOLATE, 200);
+                LED_Transition_toOff(&TransitionsHandle, LED_TRANSITION_INTERPOLATE, 200);
                 break;
 
             case 10:
-                LED_Transition_ToPulse(&TransitionsHandle, &globalPulseConfig, LED_TRANSITION_INTERPOLATE, 200);
+                LED_Transition_toPulse(&TransitionsHandle, &globalPulseConfig, LED_TRANSITION_INTERPOLATE, 200);
                 break;
             case 11:
-                LED_Transition_ToPulse(&TransitionsHandle, &globalPulseConfig, LED_TRANSITION_IMMINENT, 0);
+                LED_Transition_toPulse(&TransitionsHandle, &globalPulseConfig, LED_TRANSITION_IMMINENT, 0);
                 break;
             case 12:
                 LED_Status_t status = LED_STATUS_SUCCESS;
                 UART_printf("Transition to Blink\r\n");
                 status =
-                    LED_Transition_ToBlink(&TransitionsHandle, &globalBlinkConfig, LED_TRANSITION_INTERPOLATE, 500);
+                    LED_Transition_toBlink(&TransitionsHandle, &globalBlinkConfig, LED_TRANSITION_INTERPOLATE, 500);
 
                 if (status != LED_STATUS_SUCCESS)
                 {
@@ -563,7 +563,7 @@ int main(void)
 
                 UART_printf("Transition to Solid\r\n");
                 status =
-                    LED_Transition_ToSolid(&TransitionsHandle, &globalSolidConfig, LED_TRANSITION_INTERPOLATE, 500);
+                    LED_Transition_toSolid(&TransitionsHandle, &globalSolidConfig, LED_TRANSITION_INTERPOLATE, 500);
                 if (status != LED_STATUS_SUCCESS)
                 {
                     UART_printf("Error %d\r\n", status);
@@ -574,11 +574,11 @@ int main(void)
                 }
 
                 UART_printf("Force Stop Transition\r\n");
-                LED_Transition_Stop(&TransitionsHandle);
+                LED_Transition_stop(&TransitionsHandle);
 
                 UART_printf("Transition to Flash\r\n");
                 status =
-                    LED_Transition_ToFlash(&TransitionsHandle, &globalFlashConfig, LED_TRANSITION_INTERPOLATE, 500);
+                    LED_Transition_toFlash(&TransitionsHandle, &globalFlashConfig, LED_TRANSITION_INTERPOLATE, 500);
                 if (status != LED_STATUS_SUCCESS)
                 {
                     UART_printf("Error %d\r\n", status);

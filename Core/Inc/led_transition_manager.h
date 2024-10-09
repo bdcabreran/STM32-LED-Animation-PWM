@@ -67,7 +67,7 @@ typedef enum
 typedef struct
 {
     const void*            transitionMap;                    /**< Pointer to the transition map. */
-    LED_Handle_t*          LedHandle;                        /**< Pointer to the LED handle. */
+    LED_Handle_t*          ledHandle;                        /**< Pointer to the LED handle. */
     const void*            targetAnimData;                   /**< Pointer to the target animation data. */
     uint32_t               lastTick;                         /**< Last tick value. */
     uint16_t               Duration;                         /**< Duration of the transition. */
@@ -81,182 +81,179 @@ typedef struct
 
 /**
  * @brief Initializes the LED transition handle.
- * @param handle Pointer to the LED transition handle.
- * @param LedHandle Pointer to the LED handle.
+ * @param this Pointer to the LED transition handle.
+ * @param ledHandle Pointer to the LED handle.
  * @return LED status.
  */
-LED_Status_t LED_Transition_Init(LED_Transition_Handle_t* handle, LED_Handle_t* LedHandle);
+LED_Status_t LED_Transition_init(LED_Transition_Handle_t* this, LED_Handle_t* ledHandle);
 
 /**
  * @brief Executes an animation transition using a transition map.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param animData Pointer to the animation data.
  * @param animType Type of the animation.
  * @return LED status.
  */
-LED_Status_t LED_Transition_ExecuteWithMap(LED_Transition_Handle_t* handle, const void* animData,
+LED_Status_t LED_Transition_executeWithMap(LED_Transition_Handle_t* this, const void* animData,
                                            LED_Animation_Type_t animType);
 
 /**
  * @brief Executes a specified animation transition.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param animData Pointer to the animation data.
  * @param animType Type of the animation.
  * @param transitionType Type of the transition.
  * @param duration Duration of the transition.
  * @return LED status.
  */
-LED_Status_t LED_Transition_Execute(LED_Transition_Handle_t* handle, const void* animData,
-                                    LED_Animation_Type_t animType, LED_Transition_Type_t transitionType,
-                                    uint16_t duration);
+LED_Status_t LED_Transition_execute(LED_Transition_Handle_t* this, const void* animData, LED_Animation_Type_t animType,
+                                    LED_Transition_Type_t transitionType, uint16_t duration);
 
 /**
  * @brief Sets the transition mapping for the LED transition handle.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param transitionsMap Pointer to the transition map.
  * @param mapSize Size of the transition map.
  * @return LED status.
  */
-LED_Status_t LED_Transition_SetMapping(LED_Transition_Handle_t* handle, const void* transitionsMap, uint32_t mapSize);
+LED_Status_t LED_Transition_setMapping(LED_Transition_Handle_t* this, const void* transitionsMap, uint32_t mapSize);
 
 /**
  * @brief Updates the LED transition state based on the current tick.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param tick Current tick value.
  * @return LED status.
  */
-LED_Status_t LED_Transition_Update(LED_Transition_Handle_t* handle, uint32_t tick);
+LED_Status_t LED_Transition_update(LED_Transition_Handle_t* this, uint32_t tick);
 
 /**
  * @brief Executes a transition to turn off the LED.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param transitionType Type of the transition.
  * @param duration Duration of the transition.
  * @return LED status.
  */
-LED_Status_t LED_Transition_ToOff(LED_Transition_Handle_t* handle, LED_Transition_Type_t transitionType,
+LED_Status_t LED_Transition_toOff(LED_Transition_Handle_t* this, LED_Transition_Type_t transitionType,
                                   uint16_t duration);
 
 /**
  * @brief Executes a transition to a blinking animation.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param animData Pointer to the animation data.
  * @param transitionType Type of the transition.
  * @param duration Duration of the transition.
  * @return LED status.
  */
-LED_Status_t LED_Transition_ToBlink(LED_Transition_Handle_t* handle, const void* animData,
+LED_Status_t LED_Transition_toBlink(LED_Transition_Handle_t* this, const void* animData,
                                     LED_Transition_Type_t transitionType, uint16_t duration);
 
 /**
  * @brief Executes a transition to a breathing animation.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param animData Pointer to the animation data.
  * @param transitionType Type of the transition.
  * @param duration Duration of the transition.
  * @return LED status.
  */
-LED_Status_t LED_Transition_ToBreath(LED_Transition_Handle_t* handle, const void* animData,
+LED_Status_t LED_Transition_toBreath(LED_Transition_Handle_t* this, const void* animData,
                                      LED_Transition_Type_t transitionType, uint16_t duration);
 
 /**
  * @brief Executes a transition to a solid animation.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param animData Pointer to the animation data.
  * @param transitionType Type of the transition.
  * @param duration Duration of the transition.
  * @return LED status.
  */
-LED_Status_t LED_Transition_ToSolid(LED_Transition_Handle_t* handle, const void* animData,
+LED_Status_t LED_Transition_toSolid(LED_Transition_Handle_t* this, const void* animData,
                                     LED_Transition_Type_t transitionType, uint16_t duration);
 
 /**
  * @brief Executes a transition to a pulse animation.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param animData Pointer to the animation data.
  * @param transitionType Type of the transition.
  * @param duration Duration of the transition.
  * @return LED status.
  */
-LED_Status_t LED_Transition_ToPulse(LED_Transition_Handle_t* handle, const void* animData,
+LED_Status_t LED_Transition_toPulse(LED_Transition_Handle_t* this, const void* animData,
                                     LED_Transition_Type_t transitionType, uint16_t duration);
 
 /**
  * @brief Executes a transition to a fade-in animation.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param animData Pointer to the animation data.
  * @param transitionType Type of the transition.
  * @param duration Duration of the transition.
  * @return LED status.
  */
-LED_Status_t LED_Transition_ToFadeIn(LED_Transition_Handle_t* handle, const void* animData,
+LED_Status_t LED_Transition_toFadeIn(LED_Transition_Handle_t* this, const void* animData,
                                      LED_Transition_Type_t transitionType, uint16_t duration);
 
 /**
  * @brief Executes a transition to a fade-out animation.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param animData Pointer to the animation data.
  * @param transitionType Type of the transition.
  * @param duration Duration of the transition.
  * @return LED status.
  */
-LED_Status_t LED_Transition_ToFadeOut(LED_Transition_Handle_t* handle, const void* animData,
+LED_Status_t LED_Transition_toFadeOut(LED_Transition_Handle_t* this, const void* animData,
                                       LED_Transition_Type_t transitionType, uint16_t duration);
 
 /**
  * @brief Executes a transition to a flash animation.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param animData Pointer to the animation data.
  * @param transitionType Type of the transition.
  * @param duration Duration of the transition.
  * @return LED status.
  */
-LED_Status_t LED_Transition_ToFlash(LED_Transition_Handle_t* handle, const void* animData,
+LED_Status_t LED_Transition_toFlash(LED_Transition_Handle_t* this, const void* animData,
                                     LED_Transition_Type_t transitionType, uint16_t duration);
 
 /**
  * @brief Executes a transition to alternating colors animation.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param animData Pointer to the animation data.
  * @param transitionType Type of the transition.
  * @param duration Duration of the transition.
  * @return LED status.
  */
-LED_Status_t LED_Transition_ToAlternatingColors(LED_Transition_Handle_t* handle, const void* animData,
+LED_Status_t LED_Transition_toAlternatingColors(LED_Transition_Handle_t* this, const void* animData,
                                                 LED_Transition_Type_t transitionType, uint16_t duration);
 
 /**
  * @brief Executes a transition to a color cycle animation.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @param animData Pointer to the animation data.
  * @param transitionType Type of the transition.
  * @param duration Duration of the transition.
  * @return LED status.
  */
-LED_Status_t LED_Transition_ToColorCycle(LED_Transition_Handle_t* handle, const void* animData,
+LED_Status_t LED_Transition_toColorCycle(LED_Transition_Handle_t* this, const void* animData,
                                          LED_Transition_Type_t transitionType, uint16_t duration);
 
 /**
  * @brief Checks if the LED transition is busy.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @return True if the LED transition is busy, false otherwise.
  */
-bool LED_Transition_IsBusy(LED_Transition_Handle_t* handle);
+bool LED_Transition_isBusy(LED_Transition_Handle_t* this);
 
 /**
  * @brief Checks if the LED is off.
- * @param handle Pointer to the LED Transition handle.
+ * @param this Pointer to the LED transition handle.
  * @return True if the LED is off, false otherwise.
  */
-bool LED_Transition_IsLEDOff(LED_Transition_Handle_t* handle);
-
+bool LED_Transition_IsLEDOff(LED_Transition_Handle_t* this);
 
 /**
  * @brief Stops the LED transition.
- * @param handle Pointer to the LED transition handle.
+ * @param this Pointer to the LED transition handle.
  * @return True if the LED transition is stopped, false otherwise.
  */
-bool LED_Transition_Stop(LED_Transition_Handle_t* handle);
-
+bool LED_Transition_stop(LED_Transition_Handle_t* this);
 
 #endif /* INC_LED_TRANSITION_MANAGER_H */
