@@ -140,70 +140,130 @@ static void LED_Transition_SetDefaultType(LED_Transition_Handle_t* this)
     this->Duration       = DEFAULT_TRANSITION_INTERPOLATE_TIME_MS;
 }
 
-static void LED_Transition_HandleInterpolate(LED_Transition_Handle_t* this)
+/**
+ * @brief Prepares the LED handle for an interpolation transition.
+ *
+ * This function checks if the current LED colors match the target colors.
+ * If they do, the transition is skipped. Otherwise, it configures the target colors
+ * and ensures that the LED PWM controller is active.
+ *
+ * @param handle Pointer to the LED transition handle.
+ * @return True if the colors match and transition is skipped, false otherwise.
+ */
+static bool LED_Transition_ConfigureInterpolation(LED_Transition_Handle_t* handle)
 {
-    uint32_t colorCount = LED_Animation_GetColorCount(this->LedHandle->controller->LedType);
+    // Get the number of color channels based on the LED type
+    uint32_t colorCount = LED_Animation_GetColorCount(handle->LedHandle->controller->LedType);
     LED_TRANSITION_DBG_MSG("LED Color Count: %d\r\n", colorCount);
 
-    LED_Animation_GetCurrentColor(this->LedHandle, this->currentColor, colorCount);
-    LED_Animation_GetTargetColor((void*)this->targetAnimData, this->targetAnimType, this->targetColor, colorCount);
+    // Retrieve current and target colors
+    LED_Animation_GetCurrentColor(handle->LedHandle, handle->currentColor, colorCount);
+    LED_Animation_GetTargetColor((const void*)handle->targetAnimData, handle->targetAnimType, handle->targetColor,
+                                 colorCount);
 
-    bool startHigh = LED_Animation_ShouldStartHigh(this->targetAnimType, (void*)this->targetAnimData);
+    // Check if the target animation should start at high or low intensity
+    bool startHigh = LED_Animation_ShouldStartHigh(handle->targetAnimType, (const void*)handle->targetAnimData);
+    LED_TRANSITION_DBG_MSG("Target Animation Start: %s\r\n", startHigh ? "High" : "Low");
 
+    // If Target Animation starting low, set target colors to off (0x00)
     if (!startHigh)
     {
-        LED_TRANSITION_DBG_MSG("Target Animation starts low, setting target color to 0\r\n");
         for (uint8_t i = 0; i < colorCount; i++)
         {
-            this->targetColor[i] = 0;
+            handle->targetColor[i] = 0x00;
         }
     }
 
-    // Print Color Current and Target
+    // Compare current and target colors
+    bool colorsMatch = true;
     for (uint8_t i = 0; i < colorCount; i++)
     {
-        LED_TRANSITION_DBG_MSG("Color Current: %d, Target: %d\r\n", this->currentColor[i], this->targetColor[i]);
+        if (handle->currentColor[i] != handle->targetColor[i])
+        {
+            colorsMatch = false; // Colors do not match, transition is needed
+        }
+        LED_TRANSITION_DBG_MSG("Color Channel [%d]: Current = %d, Target = %d\r\n", i, handle->currentColor[i],
+                               handle->targetColor[i]);
     }
 
-    // ensure the LED PWM is active
-    this->LedHandle->controller->Start();
+    // If colors match, skip the transition
+    if (colorsMatch)
+    {
+        LED_TRANSITION_DBG_MSG("Colors match, skipping the transition.\r\n");
+        return true; // Transition skipped
+    }
+
+    // Ensure the LED PWM is active if a transition is needed
+    handle->LedHandle->controller->Start();
+    LED_TRANSITION_DBG_MSG("LED PWM Controller started for interpolation transition.\r\n");
+
+    return false; // Transition needed, colors did not match
 }
 
 static void LED_Transition_CallCallbackIfExists(LED_Transition_Handle_t* this, LED_Status_t Status)
 {
     if (this->LedHandle->callback != NULL)
     {
-        this->LedHandle->callback(this->LedHandle->animationType, Status);
+        this->LedHandle->callback(this->targetAnimType, Status, (void*)this->targetAnimData);
     }
 }
 
-static LED_Status_t LED_Transition_StateSetup(LED_Transition_Handle_t* this, uint32_t tick)
+/**
+ * @brief Sets up the LED transition state based on the current animation type and mapping.
+ *
+ * This function finds the appropriate transition type, sets up the necessary configuration,
+ * and checks if an interpolation transition is required. If the colors already match, the
+ * transition is skipped, and the state is moved to completion.
+ *
+ * @param handle Pointer to the LED transition handle.
+ * @param tick   Current tick value.
+ * @return LED status indicating the success or failure of the operation.
+ */
+static LED_Status_t LED_Transition_StateSetup(LED_Transition_Handle_t* handle, uint32_t tick)
 {
+    // Try to find a regular transition first
+    bool transitionFound = LED_Transition_FindRegularTransition(handle);
 
-    bool regularTransitionFound = LED_Transition_FindRegularTransition(this);
-
-    // If no regular transition is found, check the map
-    if (!regularTransitionFound)
+    // If no regular transition is found, try finding a mapped transition
+    if (!transitionFound)
     {
-        bool mapTransitionFound = LED_Transition_FindMapTransition(this);
+        transitionFound = LED_Transition_FindMapTransition(handle);
+    }
 
-        // If no map transition is found, set default transition type
-        if (!mapTransitionFound)
+    // If no transition is found in the map, set the default transition type
+    if (!transitionFound)
+    {
+        LED_Transition_SetDefaultType(handle);
+    }
+
+    // Check if the transition type is interpolation and configure it
+    if (handle->transitionType == LED_TRANSITION_INTERPOLATE)
+    {
+        bool colorsMatch = LED_Transition_ConfigureInterpolation(handle);
+
+        if (colorsMatch)
         {
-            LED_Transition_SetDefaultType(this);
+            // Colors match, no need to interpolate, move directly to completed state
+            LED_TRANSITION_DBG_MSG("Colors match, transition completed immediately.\r\n");
+
+            // Call the transition started callback
+            LED_Transition_CallCallbackIfExists(handle, LED_STATUS_ANIMATION_TRANSITION_STARTED);
+
+            // Transition is complete, so move to the completed state
+            LED_Transition_SetNextState(handle, LED_TRANSITION_STATE_COMPLETED);
+
+            return LED_STATUS_SUCCESS;
         }
     }
 
-    if (this->transitionType == LED_TRANSITION_INTERPOLATE)
-    {
-        LED_Transition_HandleInterpolate(this);
-    }
+    // Set the last tick for tracking elapsed time
+    handle->lastTick = tick;
 
-    this->lastTick = tick;
+    // Call the transition started callback
+    LED_Transition_CallCallbackIfExists(handle, LED_STATUS_ANIMATION_TRANSITION_STARTED);
 
-    LED_Transition_CallCallbackIfExists(this, LED_STATUS_ANIMATION_TRANSITION_STARTED);
-
-    LED_Transition_SetNextState(this, LED_TRANSITION_STATE_ONGOING);
+    // Move to the ongoing state to continue the transition
+    LED_Transition_SetNextState(handle, LED_TRANSITION_STATE_ONGOING);
 
     return LED_STATUS_SUCCESS;
 }
@@ -212,7 +272,7 @@ bool AreColorsOff(uint8_t* colors, uint8_t colorCount)
 {
     for (uint8_t i = 0; i < colorCount; i++)
     {
-        if (colors[i] != 0)
+        if (colors[i] != 0x00)
         {
             return false;
         }
@@ -235,6 +295,43 @@ static LED_Status_t LED_Transition_StateCompleted(LED_Transition_Handle_t* this)
     return LED_STATUS_SUCCESS;
 }
 
+bool LED_Animation_CheckAndForceColorMatch(LED_Handle_t* ledHandle, uint8_t* targetColor)
+{
+    // Get the number of colors
+    uint8_t colorCount = LED_Animation_GetColorCount(ledHandle->controller->LedType);
+    uint8_t color[colorCount];
+
+    // Get the current color
+    LED_Animation_GetCurrentColor(ledHandle, color, colorCount);
+
+    // Check if the colors match
+    bool colorsMatch = true;
+    for (uint8_t i = 0; i < colorCount; i++)
+    {
+        if (color[i] != targetColor[i])
+        {
+            colorsMatch = false;
+            LED_TRANSITION_DBG_MSG("Color [%d] Current: %d, Target: %d\r\n", i, color[i], targetColor[i]);
+            break;
+        }
+        LED_TRANSITION_DBG_MSG("Color [%d] Current: %d, Target: %d\r\n", i, color[i], targetColor[i]);
+    }
+
+    // Print result and force color if necessary
+    if (colorsMatch)
+    {
+        LED_TRANSITION_DBG_MSG("Transition Completed, Colors Match\r\n");
+    }
+    else
+    {
+        LED_TRANSITION_DBG_MSG("Transition Completed, Colors Do Not Match\r\n");
+        // Force the target color
+        LED_Animation_ExecuteColorSetting(ledHandle, targetColor);
+    }
+
+    return colorsMatch;
+}
+
 static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, uint32_t tick)
 {
     uint32_t elapsed = tick - this->lastTick;
@@ -254,6 +351,16 @@ static LED_Status_t LED_Transition_StateOngoing(LED_Transition_Handle_t* this, u
         if (elapsed >= this->Duration)
         {
             LED_TRANSITION_DBG_MSG("Interpolation Completed\r\n");
+
+            // Interpolation sometimes does not reach the target color exactly, the error is usually very small
+            if (LED_Animation_CheckAndForceColorMatch(this->LedHandle, this->targetColor))
+            {
+                LED_TRANSITION_DBG_MSG("Colors successfully transitioned.\r\n");
+            }
+            else
+            {
+                LED_TRANSITION_DBG_MSG("Colors forced to target.\r\n");
+            }
 
             // Transition to idle state
             LED_Transition_SetNextState(this, LED_TRANSITION_STATE_COMPLETED);
@@ -364,16 +471,25 @@ LED_Status_t LED_Transition_Execute(LED_Transition_Handle_t* handle, const void*
         return LED_STATUS_ERROR_NULL_POINTER;
     }
 
-    // if target animation is the same as the current animation, do not transition
-    if (handle->LedHandle->animationData == animData && handle->LedHandle->animationType == animType &&
-        handle->LedHandle->isRunning)
+    // Check if the LED is already in the target state
+    if (animType == LED_ANIMATION_TYPE_OFF && LED_Transition_IsLEDOff(handle))
     {
-        // LED_TRANSITION_DBG_MSG("Target Animation is the same as the current animation, no transition needed\r\n");
+        // Notify that the transition was skipped
+        if (handle->LedHandle->callback != NULL)
+        {
+            handle->LedHandle->callback(animType, LED_STATUS_ANIMATION_TRANSITION_SKIPPED, (void*)animData);
+        }
         return LED_STATUS_SUCCESS;
     }
 
     if (handle->state == LED_TRANSITION_STATE_IDLE)
     {
+        // If there is an ongoing led animation, stop it
+        if (handle->LedHandle->isRunning)
+        {
+            LED_Animation_Stop(handle->LedHandle, true);
+        }
+
         handle->targetAnimData = animData;
         handle->targetAnimType = animType;
         handle->transitionType = transitionType;
@@ -398,8 +514,6 @@ bool LED_Transition_Stop(LED_Transition_Handle_t* handle)
     {
         return true;
     }
-
-    LED_Animation_Stop(handle->LedHandle, true);
     LED_Transition_SetNextState(handle, LED_TRANSITION_STATE_IDLE);
     return true;
 }

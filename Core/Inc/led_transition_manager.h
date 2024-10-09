@@ -250,11 +250,13 @@ bool LED_Transition_IsBusy(LED_Transition_Handle_t* handle);
  */
 bool LED_Transition_IsLEDOff(LED_Transition_Handle_t* handle);
 
+
 /**
  * @brief Stops the LED transition.
  * @param handle Pointer to the LED transition handle.
  * @return True if the LED transition is stopped, false otherwise.
  */
 bool LED_Transition_Stop(LED_Transition_Handle_t* handle);
+
 
 #endif /* INC_LED_TRANSITION_MANAGER_H */

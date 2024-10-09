@@ -93,7 +93,7 @@ static void LED_Animation_CallCallbackIfExists(LED_Handle_t* this, LED_Status_t 
 {
     if (this->callback != NULL)
     {
-        this->callback(this->animationType, Status);
+        this->callback(this->animationType, Status, this->animationData);
     }
 }
 
@@ -150,7 +150,7 @@ uint8_t LED_Animation_GetColorCount(LED_Type_t ledType)
 static LED_Status_t SetColorGeneric(LED_Handle_t* this, uint8_t* colorValues, uint32_t colorCount)
 {
 
-    void* pwmConfig = this->controller->PwmConfig;
+    const void* pwmConfig = this->controller->PwmConfig;
 
     // Check for null pointers to ensure safety before accessing them
     if (this == NULL || this->controller == NULL || pwmConfig == NULL || colorValues == NULL)
@@ -209,7 +209,7 @@ static LED_Status_t SetColorGeneric(LED_Handle_t* this, uint8_t* colorValues, ui
 static LED_Status_t SetDutyCycleGeneric(LED_Handle_t* this, uint16_t* DutyCycleValues, uint32_t DutyCycleCount)
 {
 
-    void* pwmConfig = this->controller->PwmConfig;
+    const void* pwmConfig = this->controller->PwmConfig;
 
     // Check for null pointers to ensure safety before accessing them
     if (this == NULL || this->controller == NULL || pwmConfig == NULL || DutyCycleValues == NULL)
@@ -385,7 +385,7 @@ static LED_Status_t LED_Animation_HandleRepeatLogic(LED_Handle_t* this, int32_t 
  * @return LED_Status_t The status of the validation. Returns LED_STATUS_SUCCESS if successful, or an error
  * code if an error occurred.
  */
-LED_Status_t LED_AnimationValidateController(LED_Controller_t* Controller)
+LED_Status_t LED_AnimationValidateController(const LED_Controller_t* Controller)
 {
     if (Controller == NULL)
     {
@@ -415,7 +415,7 @@ LED_Status_t LED_AnimationValidateController(LED_Controller_t* Controller)
  * @return LED_Status_t The status of the initialization. Returns LED_STATUS_SUCCESS if successful, or an
  * error code if an error occurred.
  */
-LED_Status_t LED_Animation_Init(LED_Handle_t* this, LED_Controller_t* Controller,
+LED_Status_t LED_Animation_Init(LED_Handle_t* this, const LED_Controller_t* Controller,
                                 LED_Animation_Complete_Callback callback)
 {
     if (this == NULL)
@@ -1479,7 +1479,7 @@ void LED_Animation_PerformQuadraticInterpolation(LED_Handle_t* this, uint32_t el
     }
 
 // Print interpolated color
-#if 1
+#if 0
     LED_ANIMATION_DBG_MSG("Interpolated Color (Quadratic): ");
     for (uint8_t i = 0; i < colorCount; i++)
     {

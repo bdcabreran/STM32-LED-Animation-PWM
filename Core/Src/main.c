@@ -53,33 +53,61 @@ UART_HandleTypeDef huart2;
 #include <string.h>
 
 // Custom printf-like function
+// void UART_printf(const char* fmt, ...)
+// {
+//     char     buffer[DEBUG_BUFFER_SIZE];
+//     uint32_t timestamp = HAL_GetTick();
+//     va_list  args;
+//     va_start(args, fmt);
+//     vsnprintf(buffer, DEBUG_BUFFER_SIZE, fmt, args);
+//     va_end(args);
+//     HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+// }
+
 void UART_printf(const char* fmt, ...)
 {
-    char    buffer[DEBUG_BUFFER_SIZE];
+    char     buffer[DEBUG_BUFFER_SIZE];
+    char     timestampBuffer[20];       // Buffer to hold the timestamp string
+    uint32_t timestamp = HAL_GetTick(); // Get the current tick count (milliseconds)
+
+    // Create a formatted string with the timestamp at the beginning
+    snprintf(timestampBuffer, sizeof(timestampBuffer), "[%lu ms] ", timestamp);
+
+    // Append the timestamp to the message buffer
+    strncpy(buffer, timestampBuffer, sizeof(buffer)); // Copy timestamp to buffer
+
+    // Prepare the rest of the message
     va_list args;
     va_start(args, fmt);
-    vsnprintf(buffer, DEBUG_BUFFER_SIZE, fmt, args);
+    vsnprintf(buffer + strlen(timestampBuffer), DEBUG_BUFFER_SIZE - strlen(timestampBuffer), fmt,
+              args); // Append the formatted message to buffer
     va_end(args);
+
+    // Transmit the complete message with timestamp over UART
     HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 }
 
 void PWM_SetDutyCycle_CH1(uint16_t dutyCycle)
 {
+    // PA5
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, dutyCycle);
 }
 
 void PWM_SetDutyCycle_CH2(uint16_t dutyCycle)
 {
+    // PA1
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, dutyCycle);
 }
 
 void PWM_SetDutyCycle_CH3(uint16_t dutyCycle)
 {
+    // PB10
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, dutyCycle);
 }
 
 void PWM_SetDutyCycle_CH4(uint16_t dutyCycle)
 {
+    // PB11
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, dutyCycle);
 }
 
@@ -200,66 +228,156 @@ LED_Transition_Handle_t TransitionsHandle;
 
 #define MAX_TRANSITIONS (9)
 const LED_Transition_Config_t transitionMapping[MAX_TRANSITIONS] = {
+
     {.StartAnim      = &globalSolidConfig,
-     .EndAnim        = &globalFlashConfig,
+     .TargetAnim     = &globalFlashConfig,
      .TransitionType = LED_TRANSITION_INTERPOLATE,
      .Duration       = 200},
-    {.StartAnim = &globalBreathConfig, .EndAnim = &globalBreath2Config, .TransitionType = LED_TRANSITION_INTERPOLATE},
-    {.StartAnim = &globalBreath2Config, .EndAnim = &globalBlinkConfig, .TransitionType = LED_TRANSITION_AT_CLEAN_ENTRY},
-    {.StartAnim = &globalBlinkConfig, .EndAnim = &globalSolidConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
+
+    {.StartAnim      = &globalBreathConfig,
+     .TargetAnim     = &globalBreath2Config,
+     .TransitionType = LED_TRANSITION_INTERPOLATE},
+
+    {.StartAnim      = &globalBreath2Config,
+     .TargetAnim     = &globalBlinkConfig,
+     .TransitionType = LED_TRANSITION_AT_CLEAN_ENTRY},
+
+    {.StartAnim = &globalBlinkConfig, .TargetAnim = &globalSolidConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
     {.StartAnim      = &globalSolidConfig,
-     .EndAnim        = &globalBlinkConfig,
+     .TargetAnim     = &globalBlinkConfig,
      .TransitionType = LED_TRANSITION_INTERPOLATE,
      .Duration       = 200},
-    {.StartAnim = &globalBlinkConfig, .EndAnim = &globalBreath2Config, .TransitionType = LED_TRANSITION_INTERPOLATE},
-    {.StartAnim = &globalBreath2Config, .EndAnim = &globalBreathConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
-    {.StartAnim = &globalBreathConfig, .EndAnim = &globalPulseConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
-    {.StartAnim = &globalPulseConfig, .EndAnim = &globalFlashConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
+
+    {.StartAnim = &globalBlinkConfig, .TargetAnim = &globalBreath2Config, .TransitionType = LED_TRANSITION_INTERPOLATE},
+    {.StartAnim      = &globalBreath2Config,
+     .TargetAnim     = &globalBreathConfig,
+     .TransitionType = LED_TRANSITION_INTERPOLATE},
+
+    {.StartAnim = &globalBreathConfig, .TargetAnim = &globalPulseConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
+    {.StartAnim = &globalPulseConfig, .TargetAnim = &globalFlashConfig, .TransitionType = LED_TRANSITION_INTERPOLATE},
 
 };
 
-void LED_Complete_Callback(LED_Animation_Type_t animationType, LED_Status_t status)
+const char* LED_GetAnimationName(const void* Animation)
+{
+    if (Animation == &globalFlashConfig)
+    {
+        return "Flash";
+    }
+    else if (Animation == &globalBlinkConfig)
+    {
+        return "Blink";
+    }
+    else if (Animation == &globalSolidConfig)
+    {
+        return "Solid";
+    }
+    else if (Animation == &globalBreathConfig)
+    {
+        return "Breath";
+    }
+    else if (Animation == &globalBreath2Config)
+    {
+        return "Breath2";
+    }
+    else if (Animation == &globalFadeInConfig)
+    {
+        return "FadeIn";
+    }
+    else if (Animation == &globalFadeOutConfig)
+    {
+        return "FadeOut";
+    }
+    else if (Animation == &globalPulseConfig)
+    {
+        return "Pulse";
+    }
+    else if (Animation == &globalAlternatingColorsConfig)
+    {
+        return "AlternatingColors";
+    }
+    else if (Animation == &globalColorCycleConfig)
+    {
+        return "ColorCycle";
+    }
+    else if (Animation == NULL)
+    {
+        return "Off";
+    }
+    else
+    {
+        return "Unknown";
+    }
+}
+
+/** @brief Array of LED animation type names for debugging purposes. */
+const char* LED_AnimationTypeNames[] = {
+    "Type INVALID",            // LED_ANIMATION_TYPE_INVALID
+    "Type None",               // LED_ANIMATION_TYPE_NONE
+    "Type Off",                // LED_ANIMATION_TYPE_OFF
+    "Type Solid",              // LED_ANIMATION_TYPE_SOLID
+    "Type Blink",              // LED_ANIMATION_TYPE_BLINK
+    "Type Flash",              // LED_ANIMATION_TYPE_FLASH
+    "Type Breath",             // LED_ANIMATION_TYPE_BREATH
+    "Type Pulse",              // LED_ANIMATION_TYPE_PULSE
+    "Type Fade In",            // LED_ANIMATION_TYPE_FADE_IN
+    "Type Fade Out",           // LED_ANIMATION_TYPE_FADE_OUT
+    "Type Alternating Colors", // LED_ANIMATION_TYPE_ALTERNATING_COLORS
+    "Type Color Cycle"         // LED_ANIMATION_TYPE_COLOR_CYCLE
+};
+
+void LED_Complete_Callback(LED_Animation_Type_t animationType, LED_Status_t status, const void* Animation)
 {
     // Print a separator for clarity in the output
-    UART_printf("----------------------------------------------------------------\r\n");
-
     // Switch statement to handle different status cases
     switch (status)
     {
     case LED_STATUS_ANIMATION_STARTED:
-        UART_printf("Animation [%d] Started\r\n", animationType);
+
+        UART_printf("Animation [%s] Started : %s\r\n", LED_AnimationTypeNames[animationType],
+                    LED_GetAnimationName(Animation));
         break;
 
     case LED_STATUS_ANIMATION_COMPLETED:
-        UART_printf("Animation [%d] Completed\r\n", animationType);
+        UART_printf("Animation [%s] Completed : %s\r\n", LED_AnimationTypeNames[animationType],
+                    LED_GetAnimationName(Animation));
         break;
 
     case LED_STATUS_ANIMATION_STOPPED:
-        UART_printf("Animation [%d] Stopped\r\n", animationType);
+        UART_printf("Animation [%s] Stopped : %s\r\n", LED_AnimationTypeNames[animationType],
+                    LED_GetAnimationName(Animation));
         break;
 
     case LED_STATUS_ANIMATION_TRANSITION_STARTED:
-        UART_printf("Animation [%d] Transition Started\r\n", animationType);
+        UART_printf("----------------------------------------------------------------\r\n");
+
+        UART_printf("Animation [%s] Transition Started : %s\r\n", LED_AnimationTypeNames[animationType],
+                    LED_GetAnimationName(Animation));
         break;
 
     case LED_STATUS_ANIMATION_TRANSITION_COMPLETED:
-        UART_printf("Animation [%d] Transition Completed\r\n", animationType);
+        UART_printf("Animation [%s] Transition Completed : %s\r\n", LED_AnimationTypeNames[animationType],
+                    LED_GetAnimationName(Animation));
+        break;
+
+    case LED_STATUS_ANIMATION_TRANSITION_SKIPPED:
+        UART_printf("Animation [%s] Transition Skipped : %s\r\n", LED_AnimationTypeNames[animationType],
+                    LED_GetAnimationName(Animation));
         break;
 
     default:
         if (IS_LED_ERROR_STATUS(status))
         {
-            UART_printf("Animation [%d] Failed, Error %d\r\n", animationType, status);
+            UART_printf("Animation [%s] Failed, Error %d\r\n", LED_AnimationTypeNames[animationType], status);
         }
         else
         {
-            UART_printf("Animation [%d] Unknown Status %d\r\n", animationType, status);
+            UART_printf("Animation [%s] Unknown Status %d\r\n", LED_AnimationTypeNames[animationType], status);
         }
         break;
     }
 
     // Print a separator to mark the end of the message
-    UART_printf("----------------------------------------------------------------\r\n");
 }
 
 void InitDWT(void)
@@ -411,21 +529,72 @@ int main(void)
                                               LED_ANIMATION_TYPE_COLOR_CYCLE);
                 break;
             case 8:
-                LED_Transition_ToOff(&TransitionsHandle, LED_TRANSITION_IMMINENT, 0);
+                LED_Transition_ToOff(&TransitionsHandle, LED_TRANSITION_INTERPOLATE, 200);
+                break;
+            case 9:
+                UART_printf("Check if LED is off\r\n");
+                if (LED_Transition_IsLEDOff(&TransitionsHandle))
+                {
+                    UART_printf("LED is off\r\n");
+                }
+                LED_Transition_ToOff(&TransitionsHandle, LED_TRANSITION_INTERPOLATE, 200);
                 break;
 
-            case 9:
+            case 10:
                 LED_Transition_ToPulse(&TransitionsHandle, &globalPulseConfig, LED_TRANSITION_INTERPOLATE, 200);
                 break;
-            case 10:
+            case 11:
                 LED_Transition_ToPulse(&TransitionsHandle, &globalPulseConfig, LED_TRANSITION_IMMINENT, 0);
+                break;
+            case 12:
+                LED_Status_t status = LED_STATUS_SUCCESS;
+                UART_printf("Transition to Blink\r\n");
+                status =
+                    LED_Transition_ToBlink(&TransitionsHandle, &globalBlinkConfig, LED_TRANSITION_INTERPOLATE, 500);
+
+                if (status != LED_STATUS_SUCCESS)
+                {
+                    UART_printf("Error %d\r\n", status);
+                }
+                else
+                {
+                    UART_printf("Success\r\n");
+                }
+
+                UART_printf("Transition to Solid\r\n");
+                status =
+                    LED_Transition_ToSolid(&TransitionsHandle, &globalSolidConfig, LED_TRANSITION_INTERPOLATE, 500);
+                if (status != LED_STATUS_SUCCESS)
+                {
+                    UART_printf("Error %d\r\n", status);
+                }
+                else
+                {
+                    UART_printf("Success\r\n");
+                }
+
+                UART_printf("Force Stop Transition\r\n");
+                LED_Transition_Stop(&TransitionsHandle);
+
+                UART_printf("Transition to Flash\r\n");
+                status =
+                    LED_Transition_ToFlash(&TransitionsHandle, &globalFlashConfig, LED_TRANSITION_INTERPOLATE, 500);
+                if (status != LED_STATUS_SUCCESS)
+                {
+                    UART_printf("Error %d\r\n", status);
+                }
+                else
+                {
+                    UART_printf("Success\r\n");
+                }
+
                 break;
 
             default:
                 break;
             }
 
-            counter = (counter + 1) % 11;
+            counter = (counter + 1) % 13;
         }
 #endif
     }

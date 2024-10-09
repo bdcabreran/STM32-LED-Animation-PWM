@@ -38,7 +38,6 @@ typedef enum
     LED_STATUS_ERROR_INVALID_ARGUMENT,       /**< Error: Invalid argument provided */
     LED_STATUS_ERROR_INVALID_VALUE,          /**< Error: Invalid value provided */
     LED_STATUS_ERROR_BUSY,                   /**< Error: LED is busy */
-    LED_STATUS_ERROR_INVALID_LED_POLARITY,   /**< Error: Invalid LED polarity */
 
     // Animation statuses
     LED_STATUS_ANIMATION_STARTED,              /**< Animation started */
@@ -46,10 +45,11 @@ typedef enum
     LED_STATUS_ANIMATION_TRANSITION_STARTED,   /**< Animation transitioning */
     LED_STATUS_ANIMATION_TRANSITION_COMPLETED, /**< Animation transition completed */
     LED_STATUS_ANIMATION_STOPPED,              /**< Animation stopped */
+    LED_STATUS_ANIMATION_TRANSITION_SKIPPED,   /**< Transition skipped because conditions are already met */
 
 } LED_Status_t;
 
-#define IS_LED_ERROR_STATUS(status) ((status) > LED_STATUS_SUCCESS && (status) <= LED_STATUS_ERROR_INVALID_LED_POLARITY)
+#define IS_LED_ERROR_STATUS(status) ((status) > LED_STATUS_SUCCESS && (status) <= LED_STATUS_ERROR_BUSY)
 
 /** @brief Structure to represent a PWM channel. */
 typedef struct
@@ -122,7 +122,7 @@ typedef struct
 {
     void (*Start)(void);     /**< Function to start the PWM. */
     void (*Stop)(void);      /**< Function to stop the PWM. */
-    void*      PwmConfig;    /**< Pointer to the LED configuration. */
+    const void* PwmConfig;    /**< Pointer to the LED configuration. */
     LED_Type_t LedType;      /**< Type of the LED configuration. */
     uint16_t   MaxDutyCycle; /**< Maximum duty cycle value. */
 
@@ -190,12 +190,12 @@ typedef struct
 } DualColor_t;
 
 /** @brief Callback type for indicating pattern completion. */
-typedef void (*LED_Animation_Complete_Callback)(LED_Animation_Type_t animationType, LED_Status_t status);
+typedef void (*LED_Animation_Complete_Callback)(LED_Animation_Type_t animationType, LED_Status_t status, void *Animation);
 
 /** @brief Structure to represent an LED handle. */
 typedef struct
 {
-    LED_Controller_t*               controller;    /**< Pointer to the LED controller. */
+    const LED_Controller_t*         controller;    /**< Pointer to the LED controller. */
     void*                           animationData; /**< Pointer to the animation data. */
     LED_Animation_Complete_Callback callback;      /**< pattern completion. */
     uint32_t                        startTime;     /**< Start time of the animation. */
@@ -210,7 +210,7 @@ typedef struct
 /** @brief Structure for solid animation configuration. */
 typedef struct
 {
-    void*    color;           // Color configuration for the solid animation
+    const void*    color;           // Color configuration for the solid animation
     uint32_t executionTimeMs; // Duration for which the solid color is displayed
                               // in milliseconds, (0 for infinite)
 } LED_Animation_Solid_t;
@@ -218,7 +218,7 @@ typedef struct
 /** @brief Structure for blink animation configuration. */
 typedef struct
 {
-    void*    color;       // Color to blink
+    const void*    color;       // Color to blink
     uint16_t periodMs;    // Time for one complete on/off cycle in milliseconds
     int8_t   repeatTimes; // Number of times to repeat the blink (-1 for infinite)
 } LED_Animation_Blink_t;
@@ -226,7 +226,7 @@ typedef struct
 /** @brief Structure for flash animation configuration. */
 typedef struct
 {
-    void*    color;       // Color to flash
+    const void*    color;       // Color to flash
     uint16_t onTimeMs;    // Time for which the LED is on in milliseconds
     uint16_t offTimeMs;   // Time for which the LED is off in milliseconds
     int8_t   repeatTimes; // Number of times to repeat the flash (-1 for infinite)
@@ -235,7 +235,7 @@ typedef struct
 /** @brief Structure for breath animation configuration. */
 typedef struct
 {
-    void*    color;       // Color to use for the breathing effect
+    const void*    color;       // Color to use for the breathing effect
     uint16_t riseTimeMs;  // Time for the intensity to increase from min to max
     uint16_t fallTimeMs;  // Time for the intensity to decrease from max to min
     int8_t   repeatTimes; // Number of times to repeat (-1 for infinite)
@@ -245,7 +245,7 @@ typedef struct
 /** @brief Structure for fade-in animation configuration. */
 typedef struct
 {
-    void*    color;       // Color to use for the fade effect
+    const void*    color;       // Color to use for the fade effect
     uint16_t durationMs;  // Time for the intensity to increase from min to max
     int8_t   repeatTimes; // Number of times to repeat (-1 for infinite)
 } LED_Animation_FadeIn_t;
@@ -253,7 +253,7 @@ typedef struct
 /** @brief Structure for fade-out animation configuration. */
 typedef struct
 {
-    void*    color;       // Color to use for the fade effect
+    const void*    color;       // Color to use for the fade effect
     uint16_t durationMs;  // Time for the intensity to decrease from max to min
     int8_t   repeatTimes; // Number of times to repeat (-1 for infinite)
 } LED_Animation_FadeOut_t;
@@ -261,7 +261,7 @@ typedef struct
 /** @brief Structure for pulse animation configuration. */
 typedef struct
 {
-    void*    color;         // Color to use for the pulsing effect
+    const void*    color;         // Color to use for the pulsing effect
     uint16_t riseTimeMs;    // Time for the intensity to increase from min to max
     uint16_t holdOnTimeMs;  // Time for the intensity to stay at max
     uint16_t holdOffTimeMs; // Time for the intensity to stay at min
@@ -272,7 +272,7 @@ typedef struct
 /** @brief Structure for alternating colors animation configuration. */
 typedef struct
 {
-    void*    colors;      // Array of colors to alternate between
+    const void*    colors;      // Array of colors to alternate between
     uint16_t colorCount;  // Number of colors in the array
     uint16_t durationMs;  // Duration for each color in milliseconds
     int8_t   repeatTimes; // Number of times to repeat the color alternation (-1
@@ -282,7 +282,7 @@ typedef struct
 /** @brief Structure for color cycle animation configuration. */
 typedef struct
 {
-    void*    colors;       // Array of colors to cycle through
+    const void*    colors;       // Array of colors to cycle through
     uint16_t colorCount;   // Number of colors in the array
     uint16_t transitionMs; // Duration of the transition between each color in
                            // milliseconds
@@ -300,7 +300,7 @@ typedef struct
  *  @param callback Callback function for animation completion.
  *  @return LED status.
  */
-LED_Status_t LED_Animation_Init(LED_Handle_t* this, LED_Controller_t* Controller,
+LED_Status_t LED_Animation_Init(LED_Handle_t* this, const LED_Controller_t* Controller,
                                 LED_Animation_Complete_Callback callback);
 
 /** @brief Set the LED animation.
